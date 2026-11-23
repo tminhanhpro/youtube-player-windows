@@ -14,6 +14,7 @@ const { StreamProxy } = require('./proxy');
 const { TvManager } = require('./tv');
 
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+try { require('dns').setDefaultResultOrder('ipv4first'); } catch (e) { /* ignore */ } // link googlevideo gắn với IP lúc lấy link (yt-dlp -4) -> proxy cũng dùng IPv4
 
 if (!app.requestSingleInstanceLock()) { app.quit(); }
 
@@ -75,7 +76,40 @@ function saveFavs(list) { Favs.save(store, list); ctl.bumpFavVersion(); ctl.emit
 
 /** Các lệnh cửa sổ được phép gọi. */
 const SETTING_KEYS = { backend: ['AUTO', 'STREAM', 'IFRAME'], seedAutoplay: 'bool', gridCols: [1, 2, 3], fullscreenSec: 'int', qrHidden: 'bool', tvOutput: ['AUTO', 'OFF'] };
+function buildReport() {
+  const os = require('os');
+  const lines = resolver.readLog(400);
+  const ok = [], fails = {}; let nFail = 0, nPlayFail = 0, nProxy = 0, nRetry = 0, nUi = 0;
+  for (const l of lines) {
+    let m;
+    if ((m = / OK \S+ (\d+)ms/.exec(l))) ok.push(Number(m[1]));
+    else if (/ FAIL /.test(l) && !/ PROXY FAIL /.test(l)) { nFail++; const r = (l.split('ms: ')[1] || l.split(' FAIL ')[1] || '').slice(0, 90); fails[r] = (fails[r] || 0) + 1; }
+    else if (/ PLAYFAIL /.test(l)) { nPlayFail++; const r = (l.split('] ')[1] || '').slice(0, 90); fails['(phát) ' + r] = (fails['(phát) ' + r] || 0) + 1; }
+    else if (/ PROXY FAIL /.test(l)) { nProxy++; }
+    else if (/ RETRY /.test(l)) nRetry++;
+    else if (/ (UI|MEDIA|JS) /.test(l)) nUi++;
+  }
+  const avg = ok.length ? Math.round(ok.reduce((a, b) => a + b, 0) / ok.length / 100) / 10 : 0;
+  const max = ok.length ? Math.round(Math.max(...ok) / 100) / 10 : 0;
+  const bin = resolver.binDir();
+  const head = [
+    '=== TỔNG HỢP ===',
+    'Phiên bản app ' + app.getVersion() + ' · Electron ' + process.versions.electron + ' · ' + os.type() + ' ' + os.release() + ' · ' + os.arch(),
+    'yt-dlp: ' + (resolver.exe('yt-dlp') ? 'có' : 'THIẾU') + ' · deno: ' + (resolver.exe('deno') ? 'có' : 'THIẾU') + (bin ? '' : ' (không thấy thư mục bin)'),
+    'Cài đặt: ' + settings.backend + ' · tối đa ' + settings.maxHeight + 'p',
+    'Lấy link OK: ' + ok.length + ' lần (TB ' + avg + ' giây, chậm nhất ' + max + ' giây) · lấy link LỖI: ' + nFail,
+    'Bài phát lỗi: ' + nPlayFail + ' · proxy lỗi mạng: ' + nProxy + ' · tự thử lại: ' + nRetry + ' · lỗi giao diện/media: ' + nUi
+  ];
+  const top = Object.entries(fails).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  if (top.length) { head.push('Lỗi hay gặp:'); top.forEach(([r, c]) => head.push('  ' + c + ' lần: ' + r)); }
+  head.push('', '=== NHẬT KÝ (60 dòng gần nhất, mới nhất ở dưới) ===');
+  return { text: head.concat(lines.slice(-60)).join('\n') || '(chưa có nhật ký)', path: resolver.logPath() };
+}
 const methods = {
+  getReport: () => buildReport(),
+  clearLog: () => { resolver.clearLog(); return true; },
+  openLogFolder: () => { const p = resolver.logPath(); if (p) shell.showItemInFolder(p); return !!p; },
+  logRenderer: msg => { resolver.log('UI ' + String(msg).slice(0, 400)); return true; },
   setWindowFullscreen: on => {
     if (!win || win.isDestroyed()) return false;
     if (on) { if (win.isFullScreen()) return false; win.setFullScreen(true); return true; } // true = do app tự vào, app sẽ tự thoát
@@ -205,6 +239,7 @@ app.whenReady().then(async () => {
   Menu.setApplicationMenu(null);
   store = new Store(app.getPath('userData'));
   resolver.setLogDir(app.getPath('userData'));
+  resolver.log('START v' + app.getVersion() + ' electron ' + process.versions.electron + ' ' + process.platform);
   settings = new Settings(store);
   ctl = new Controller(settings, store, path.join(__dirname, 'seed.json'));
   proxy = new StreamProxy(() => 'http://127.0.0.1:' + server.port);

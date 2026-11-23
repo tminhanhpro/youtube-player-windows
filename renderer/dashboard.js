@@ -42,6 +42,7 @@ function modal(o) {
   let html = '<h2>' + esc(o.title || '') + '</h2>';
   (o.lines || []).forEach(l => { html += '<p' + (l.style ? ' style="' + l.style + '"' : '') + '>' + esc(l.text || l) + '</p>'; });
   d.innerHTML = html;
+  if (o.pre != null) { const pre = document.createElement('pre'); pre.className = 'logpre'; pre.textContent = o.pre; d.appendChild(pre); setTimeout(() => { pre.scrollTop = pre.scrollHeight; }, 0); }
   let input = null;
   if (o.input) { input = document.createElement('input'); input.placeholder = o.input.placeholder || ''; d.appendChild(input); }
   const close = () => { root.hidden = true; root.innerHTML = ''; dialogs = Math.max(0, dialogs - 1); document.removeEventListener('keydown', onKey, true); lastControlAt = Date.now(); if (prevFocus && prevFocus.isConnected) prevFocus.focus(); };
@@ -361,6 +362,7 @@ async function showSettings() {
       { label: 'Số bài mỗi hàng kết quả: ' + s.gridCols, run: again(() => bridge.call('setSetting', ['gridCols', s.gridCols === 3 ? 2 : s.gridCols === 2 ? 1 : 3])) },
       { label: 'Tự phóng lớn video sau: ' + (s.fullscreenSec === 0 ? 'TẮT' : s.fullscreenSec + ' giây'), run: again(() => { lastControlAt = Date.now(); return bridge.call('setSetting', ['fullscreenSec', nextOf([3, 5, 10, 15, 30, 60, 0], s.fullscreenSec)]); }) },
       { label: 'Xuất ra màn hình ngoài (HDMI): ' + (s.tvOutput === 'OFF' ? 'TẮT' : 'TỰ ĐỘNG') + (tvActive ? ' · đang xuất' : ''), run: again(() => bridge.call('setSetting', ['tvOutput', s.tvOutput === 'OFF' ? 'AUTO' : 'OFF'])) },
+      { label: 'Báo cáo lỗi / nhật ký phát video', run: showReport },
       { label: 'Khôi phục 5 thể loại mặc định', run: async () => { await bridge.call('catsReset'); selCat = -1; toast('Đã khôi phục các thể loại mặc định'); } },
       { label: 'Đặt lại ghép nối (ngắt mọi điện thoại)', run: () => modal({
         title: 'Đặt lại ghép nối?', lines: ['Tất cả điện thoại đã kết nối sẽ bị ngắt. Quét lại mã QR để kết nối.'],
@@ -369,6 +371,21 @@ async function showSettings() {
     ]
   });
 }
+async function showReport() {
+  let r;
+  try { r = await bridge.call('getReport'); } catch (e) { r = { text: 'Không đọc được nhật ký: ' + e.message, path: '' }; }
+  modal({
+    title: 'Báo cáo lỗi', pre: r.text, lines: [{ text: 'File nhật ký: ' + (r.path || '?'), style: 'font-size:1rem' }],
+    buttons: [
+      { label: 'Sao chép', primary: true, run: () => { navigator.clipboard.writeText(r.text + '\n\nFile: ' + r.path).then(() => toast('Đã sao chép báo cáo'), () => toast('Không sao chép được')); } },
+      { label: 'Mở thư mục', run: () => bridge.call('openLogFolder') },
+      { label: 'Xóa nhật ký', run: async () => { await bridge.call('clearLog'); toast('Đã xóa nhật ký'); } },
+      { label: 'Đóng' }
+    ], focus: 0
+  });
+}
+window.addEventListener('error', e => { try { bridge.call('logRenderer', ['JS ' + e.message + ' @' + String(e.filename || '').split('/').pop() + ':' + e.lineno]); } catch (x) { /* ignore */ } });
+window.addEventListener('unhandledrejection', e => { try { bridge.call('logRenderer', ['JS promise: ' + (e.reason && e.reason.message || e.reason)]); } catch (x) { /* ignore */ } });
 $('gear').onclick = showSettings;
 
 // ------------------------------------------------------------------ phóng to / thu nhỏ video

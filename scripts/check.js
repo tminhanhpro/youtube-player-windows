@@ -42,9 +42,9 @@ async function testPlayback(dir) {
   const store = new Store(fs.mkdtempSync(path.join(os.tmpdir(), 'ytp2-'))), settings = new Settings(store);
   settings.seedAutoplay = false;
   const ctl = new Controller(settings, store, path.join(__dirname, '..', 'main', 'seed.json'));
-  let resolves = 0, failFor = null;
+  let resolves = 0, failFor = null; const resolvedIds = [];
   resolver.resolve = async (vid) => {
-    resolves++;
+    resolves++; resolvedIds.push(vid);
     if (vid === failFor) throw new resolver.UnavailableError('x');
     return { sources: [{ video: { url: 'http://x/' + vid }, audio: null, height: 720 }], expiresAt: Date.now() + 1e6, title: 'T', channel: 'C', durationSec: 100 };
   };
@@ -64,9 +64,19 @@ async function testPlayback(dir) {
   ctl.playerEvent('ended', load.key);                       // sang bài B
   await new Promise(r => setTimeout(r, 50));
   load = cmds.filter(c => c.type === 'load').pop(); assert.equal(load.videoId, 'bbbbbbbbbbb');
-  // lỗi luồng -> giải link lại (1 lần) -> rồi báo lỗi và chuyển bài
+  // lỗi luồng -> thử lại cùng nguồn (2 lần) -> giải link lại (1 lần) -> rồi báo lỗi và chuyển bài
+  const loadsOf = () => cmds.filter(c => c.type === 'load').length;
+  const bCount = () => resolvedIds.filter(v => v === 'bbbbbbbbbbb').length; const r0 = bCount(); let n = loadsOf();
+  for (let i = 0; i < 2; i++) {
+    ctl.playerEvent('error', load.key); await new Promise(r => setTimeout(r, 500));
+    assert.equal(loadsOf(), n + 1); assert.equal(bCount(), r0); n++;                 // nạp lại cùng link, chưa giải link mới
+  }
   ctl.playerEvent('error', load.key); await new Promise(r => setTimeout(r, 50));
-  assert.equal(cmds.filter(c => c.type === 'load').pop().videoId, 'bbbbbbbbbbb'); assert.ok(resolves >= 3);
+  assert.equal(cmds.filter(c => c.type === 'load').pop().videoId, 'bbbbbbbbbbb'); assert.ok(bCount() > r0);
+  load = cmds.filter(c => c.type === 'load').pop();
+  ctl.playerEvent('error', load.key); await new Promise(r => setTimeout(r, 500));
+  load = cmds.filter(c => c.type === 'load').pop();
+  ctl.playerEvent('error', load.key); await new Promise(r => setTimeout(r, 500));
   load = cmds.filter(c => c.type === 'load').pop();
   ctl.playerEvent('error', load.key); assert.equal(ctl.state, 'ERROR');
   await new Promise(r => setTimeout(r, 1800));

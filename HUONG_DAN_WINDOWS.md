@@ -58,3 +58,6 @@ Mỗi lần lấy link video, app ghi nhật ký vào `%APPDATA%\youtube-player-
 
 ## Micro (tìm bằng giọng nói) trên máy tính
 Electron không có dịch vụ nhận giọng nói của Google, nên nút micro mở **Nhập bằng giọng nói của Windows (Win+H)** vào ô tìm kiếm: nói xong bấm Enter. Cần Windows 10/11, bật "Nhận dạng giọng nói trực tuyến" và có micro. Trên điện thoại: dùng phím micro của bàn phím.
+
+## Báo cáo lỗi trong app
+**Cài đặt → "Báo cáo lỗi / nhật ký phát video"**: phần TỔNG HỢP ở đầu (phiên bản, yt-dlp/deno có hay thiếu, số lần lấy link OK/lỗi, thời gian trung bình, lỗi hay gặp) rồi tới 60 dòng nhật ký gần nhất. Nút **Sao chép** để gửi lại cho người hỗ trợ, **Mở thư mục** mở file `youtube-player.log`, **Xóa nhật ký** để bắt đầu đo lại.

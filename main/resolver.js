@@ -7,7 +7,16 @@ const { oembed } = require('./search');
 class UnavailableError extends Error {}
 
 let logFile = null;
-function setLogDir(d) { logFile = path.join(d, 'youtube-player.log'); }
+function setLogDir(d) {
+  logFile = path.join(d, 'youtube-player.log');
+  try { if (fs.existsSync(logFile) && fs.statSync(logFile).size > 512 * 1024) { // giữ ~200KB cuối
+    const t = fs.readFileSync(logFile, 'utf8'); fs.writeFileSync(logFile, t.slice(-200 * 1024)); } } catch (e) { /* ignore */ }
+}
+function logPath() { return logFile; }
+function readLog(maxLines) {
+  try { return fs.readFileSync(logFile, 'utf8').split('\n').filter(Boolean).slice(-(maxLines || 300)); } catch (e) { return []; }
+}
+function clearLog() { try { fs.writeFileSync(logFile, ''); } catch (e) { /* ignore */ } }
 function log(msg) {
   if (!logFile) return;
   try { fs.appendFileSync(logFile, new Date().toISOString() + ' ' + String(msg).slice(0, 1500) + '\n'); } catch (e) { /* ignore */ }
@@ -32,7 +41,7 @@ function exe(name) {
 function runYtDlp(url) {
   return new Promise((resolve, reject) => {
     const bin = exe('yt-dlp') || (process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp');
-    const args = ['-J', '--no-playlist', '--no-warnings', '--skip-download', '--no-cache-dir', '--socket-timeout', '15'];
+    const args = ['-4', '-J', '--no-playlist', '--no-warnings', '--skip-download', '--no-cache-dir', '--socket-timeout', '15'];
     const deno = exe('deno');
     const env = { ...process.env };
     if (deno) {
@@ -144,4 +153,4 @@ async function channelUrl(id) {
   } catch (e) { return null; }
 }
 
-module.exports = { setLogDir, log, resolve, cached, invalidate, meta, channelUrl, UnavailableError, binDir, exe };
+module.exports = { setLogDir, logPath, readLog, clearLog, log, resolve, cached, invalidate, meta, channelUrl, UnavailableError, binDir, exe };

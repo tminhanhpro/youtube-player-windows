@@ -55,8 +55,14 @@
     });
     video.addEventListener('waiting', () => { if (mode === 'stream' && hasAudio) audio.pause(); });
     video.addEventListener('ended', () => { if (mode === 'stream') fire('ended'); });
-    video.addEventListener('error', () => { if (mode === 'stream' && video.getAttribute('src')) fire('error'); });
-    audio.addEventListener('error', () => { if (mode === 'stream' && audio.getAttribute('src')) fire('error'); });
+    const logMedia = (el, name) => {
+      try {
+        const er = el.error;
+        window.ytp && window.ytp.call('logRenderer', ['MEDIA ' + name + ' lỗi code=' + (er && er.code) + ' ' + (er && er.message || '') + ' · ' + (el.currentSrc || '').slice(-24)]).catch(() => {});
+      } catch (e) { /* ignore */ }
+    };
+    video.addEventListener('error', () => { if (mode === 'stream' && video.getAttribute('src')) { logMedia(video, 'video'); fire('error'); } });
+    audio.addEventListener('error', () => { if (mode === 'stream' && audio.getAttribute('src')) { logMedia(audio, 'audio'); fire('error'); } });
     video.addEventListener('loadedmetadata', () => {
       if (mode !== 'stream') return;
       if (startMs > 0) { video.currentTime = startMs / 1000; if (hasAudio) audio.currentTime = startMs / 1000; }

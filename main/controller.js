@@ -347,7 +347,7 @@ class Controller extends EventEmitter {
     this.netWait = false;
     this.sources = []; this.srcIdx = 0;
     if (this.lastItemId !== item.itemId) {
-      this.lastItemId = item.itemId; this.reresolved = false; this.stallRetries = 0;
+      this.lastItemId = item.itemId; this.reresolved = false; this.stallRetries = 0; this.sameSrcRetry = 0;
     }
     this.lastPos = -1;
     this.pos = startMs || 0; this.dur = (item.durationSec || 0) * 1000;
@@ -459,6 +459,12 @@ class Controller extends EventEmitter {
   handleStreamError(item) {
     if (!this.current || this.current.itemId !== item.itemId) return;
     const pos = this.pos;
+    if ((this.sameSrcRetry || 0) < 2 && this.sources[this.srcIdx]) {
+      this.sameSrcRetry = (this.sameSrcRetry || 0) + 1;
+      resolver.log('RETRY same source #' + this.sameSrcRetry + ' ' + item.videoId);
+      setTimeout(() => this.startStream(item, pos > 5000 ? pos : 0), 400);
+      return;
+    }
     if (this.srcIdx + 1 < this.sources.length) {
       this.srcIdx++;
       this.startStream(item, pos > 5000 ? pos : 0);
@@ -489,6 +495,7 @@ class Controller extends EventEmitter {
     this.consecutiveFails++;
     const lf = this.lastFail && this.lastFail.message ? String(this.lastFail.message).replace(/^ERROR:\s*(\[[^\]]*\]\s*)?([\w-]{11}:\s*)?/, '') : 'lỗi phát video';
     this.errDetail = lf.slice(0, 110); this.lastFail = null;
+    resolver.log('PLAYFAIL ' + item.videoId + ' [' + code + '] ' + this.errDetail + ' — "' + String(item.title).slice(0, 60) + '" (nguồn ' + (this.srcIdx + 1) + '/' + (this.sources.length || 0) + (this.usingIframe ? ', iframe' : '') + ')');
     this.emitError(code, item.title);
     this.cmd({ type: 'stop' });
     this.state = S.ERROR;
