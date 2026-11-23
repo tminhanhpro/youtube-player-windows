@@ -67,3 +67,6 @@ googlevideo có thể từ chối (HTTP 403) tùy cách yêu cầu hoặc tùy "
 
 ## Nếu vẫn bị 403: kiểm tra IP mạng
 Link YouTube gắn với IP công cộng lúc lấy link. Nếu mạng có nhiều đường ra (cân bằng tải, CGNAT, VPN...), mỗi kết nối mới có thể ra bằng IP khác và bị từ chối. App giữ một kết nối bền cho mỗi luồng và tự mở kết nối mới khi bị 403. **Cài đặt → Báo cáo lỗi → Kiểm tra IP mạng** mở 8 kết nối mới và cho biết IP có đổi không.
+
+## Chọn máy chủ googlevideo
+Tên miền googlevideo có thể trả về nhiều máy chủ; có máy chủ (ví dụ cache của nhà mạng) từ chối link (403). Proxy tự chọn một máy chủ cho mỗi lần thử, đánh dấu máy chủ bị từ chối để tránh trong 10 phút, và ghi `máy chủ x.x.x.x` vào nhật ký. Báo cáo lỗi tự che IP của bạn (`ip=14.183.x.x`); file log trên máy vẫn giữ nguyên.

@@ -2,6 +2,7 @@
 const crypto = require('crypto');
 const http = require('http');
 const https = require('https');
+const dns = require('dns');
 const resolver = require('./resolver');
 
 const CHUNK = 4 * 1024 * 1024; // YouTube bóp tốc độ nếu tải một mạch -> tải từng đoạn 4 MB (giống bản Android)
@@ -13,14 +14,31 @@ function newAgent(isHttps) {
   return isHttps ? new https.Agent(o) : new http.Agent(o);
 }
 
-/** GET có agent riêng, IPv4 (khớp yt-dlp -4). Trả IncomingMessage (chưa đọc body). */
-function request(url, headers, agent, signal) {
+/** GET có agent riêng, IPv4 (khớp yt-dlp -4), có thể ép kết nối tới một IP máy chủ cụ thể (pickIp). Đi theo chuyển hướng. */
+async function request(url, headers, agent, signal, hops, pickIp) {
+  hops = hops || 0;
+  const u = new URL(url);
+  const isHttps = u.protocol === 'https:';
+  const lib = isHttps ? https : http;
+  let ip = null;
+  if (pickIp && !/^\d+\.\d+\.\d+\.\d+$/.test(u.hostname)) { try { ip = await pickIp(u.hostname); } catch (x) { ip = null; } }
+  const lookup = ip ? (h, o, cb) => (o && o.all ? cb(null, [{ address: ip, family: 4 }]) : cb(null, ip, 4)) : undefined;
+  const ag = agent && (agent instanceof https.Agent) === isHttps ? agent : undefined; // khác giao thức -> agent mặc định
   return new Promise((resolve, reject) => {
-    const u = new URL(url);
-    const lib = u.protocol === 'https:' ? https : http;
-    const req = lib.request(u, { method: 'GET', headers, agent, family: 4, signal }, resolve);
+    const fail = e => { e.edgeIp = ip; e.edgeHost = u.hostname; reject(e); };
+    const req = lib.request(u, { method: 'GET', headers, agent: ag, family: 4, signal, lookup }, res => {
+      const st = res.statusCode, loc = res.headers.location;
+      if ([301, 302, 303, 307, 308].includes(st) && loc) {
+        res.resume();
+        if (hops >= 4) return fail(Object.assign(new Error('quá nhiều chuyển hướng'), { code: 'REDIRECTS' }));
+        let next; try { next = new URL(loc, u).toString(); } catch (x) { return fail(new Error('Location hỏng')); }
+        return request(next, headers, agent, signal, hops + 1, pickIp).then(r => { r.viaRedirect = new URL(next).hostname; resolve(r); }, reject);
+      }
+      res.edgeIp = ip; res.edgeHost = u.hostname;
+      resolve(res);
+    });
     req.setTimeout(10000, () => req.destroy(new Error('ETIMEDOUT')));
-    req.on('error', reject);
+    req.on('error', fail);
     req.end();
   });
 }
@@ -30,7 +48,27 @@ class StreamProxy {
     this.getBase = getBase;
     this.entries = new Map(); // id -> { url, size, headers, mime }
     this.byUrl = new Map();   // url -> id
+    this.edge = new Map();    // hostname -> { t, ips[], bad: Map(ip -> hết hạn) }
+    this.pickIp = host => this.pickEdge(host);
   }
+
+  /** Chọn ngẫu nhiên một IP của máy chủ googlevideo, tránh IP vừa bị từ chối (403/lỗi) trong 10 phút gần đây. */
+  async pickEdge(host) {
+    let c = this.edge.get(host);
+    if (!c || Date.now() - c.t > 300000) {
+      let ips = [];
+      try { ips = await dns.promises.resolve4(host); } catch (x) { /* ignore */ }
+      if (!ips.length) { try { ips = (await dns.promises.lookup(host, { all: true, family: 4 })).map(r => r.address); } catch (x) { /* ignore */ } }
+      c = { t: Date.now(), ips, bad: c ? c.bad : new Map() };
+      this.edge.set(host, c);
+    }
+    const now = Date.now();
+    const good = c.ips.filter(ip => !(c.bad.get(ip) > now));
+    const list = good.length ? good : c.ips;
+    return list.length ? list[Math.floor(Math.random() * list.length)] : null;
+  }
+  markBad(host, ip) { const c = this.edge.get(host); if (c && ip) c.bad.set(ip, Date.now() + 600000); }
+  markOk(host, ip) { const c = this.edge.get(host); if (c && ip) c.bad.delete(ip); }
 
   /** Đăng ký một nguồn, trả về URL cục bộ. */
   local(src) {
@@ -97,36 +135,45 @@ class StreamProxy {
   async fetchRange(e, start, end, outer) {
     const tried = [];
     let isHttps = false; try { isHttps = new URL(e.url).protocol === 'https:'; } catch (x) { /* ignore */ }
-    for (let round = 0; round < 4; round++) {
-      for (const mode of this.modesFor(e)) {
+    let firstHost = ''; try { firstHost = new URL(e.url).hostname; } catch (x) { /* ignore */ }
+    for (let round = 0; round < 10; round++) {
+      const modes = this.modesFor(e);
+      // Cố định MỘT máy chủ (IP) cho cả vòng này để kết quả 403 quy đúng cho máy chủ đó
+      const roundIp = firstHost && !/^\d+\.\d+\.\d+\.\d+$/.test(firstHost) ? await this.pickEdge(firstHost) : null;
+      const pick = h => (h === firstHost && roundIp ? roundIp : this.pickEdge(h));
+      for (const mode of (round === 0 ? modes : [e.mode || modes[0]])) {
         if (outer && outer.aborted) throw new Error('aborted');
         if (!e.agent) e.agent = newAgent(isHttps);
         const rq = this.buildReq(e, start, end, mode);
         const sig = outer ? AbortSignal.any([outer, AbortSignal.timeout(15000)]) : AbortSignal.timeout(15000);
         try {
-          const r = await request(rq.url, rq.headers, e.agent, sig);
+          const r = await request(rq.url, rq.headers, e.agent, sig, 0, pick);
           const want = end - start + 1, cl = Number(r.headers['content-length'] || 0);
           const st = r.statusCode;
           const okStatus = mode === 'param' ? (st === 200 || st === 206) : (st === 206 || (st === 200 && start === 0));
           if (okStatus && !(mode === 'param' && cl && cl > want)) {
-            if (e.mode !== mode || round > 0) {
+            this.markOk(r.edgeHost, r.edgeIp);
+            if (e.mode !== mode || round > 0 || !e.edgeLogged) {
+              e.edgeLogged = true;
               e.mode = mode;
-              resolver.log('PROXY dùng cách ' + mode + (round ? ' sau ' + round + ' lần mở kết nối mới' : '') + (tried.length ? ' (' + tried.join(', ') + ')' : ''));
+              resolver.log('PROXY dùng cách ' + mode + (round ? ' sau ' + round + ' lần mở kết nối mới' : '') + (tried.length ? ' (' + tried.slice(0, 4).join(', ') + (tried.length > 4 ? ', …' : '') + ')' : '') + (r.viaRedirect ? ' qua chuyển hướng ' + r.viaRedirect : '') + ' · máy chủ ' + (r.edgeIp || '?'));
             }
             return { res: r, mode };
           }
-          tried.push(mode + ':' + st);
+          tried.push(mode + ':' + st + '@' + (r.edgeIp || '?'));
+          this.markBad(r.edgeHost, r.edgeIp);
           r.resume();
         } catch (err) {
           if (outer && outer.aborted) throw err;
-          tried.push(mode + ':' + (err && err.code || err && err.message || 'lỗi mạng'));
+          tried.push(mode + ':' + (err && err.code || err && err.message || 'lỗi mạng') + '@' + ((err && err.edgeIp) || '?'));
+          this.markBad(err && err.edgeHost, err && err.edgeIp);
         }
       }
       this.renewAgent(e); // kết nối mới có thể ra internet bằng IP khác
-      await new Promise(res => setTimeout(res, 250));
+      await new Promise(res => setTimeout(res, 150));
     }
     let ip = '?'; try { ip = new URL(e.url).searchParams.get('ip') || '?'; } catch (x) { /* ignore */ }
-    resolver.log('PROXY FAIL bytes=' + start + '-' + end + ' (link cấp cho IP ' + ip + ') ' + tried.slice(0, 8).join(' | '));
+    resolver.log('PROXY FAIL bytes=' + start + '-' + end + ' (link cấp cho IP ' + ip + ') ' + tried.slice(0, 6).join(' | ') + (tried.length > 6 ? ' | … (' + tried.length + ' lần)' : ''));
     throw new Error('proxy: ' + tried.join(' | '));
   }
 

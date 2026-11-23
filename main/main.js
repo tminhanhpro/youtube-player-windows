@@ -76,6 +76,7 @@ function saveFavs(list) { Favs.save(store, list); ctl.bumpFavVersion(); ctl.emit
 
 /** Các lệnh cửa sổ được phép gọi. */
 const SETTING_KEYS = { backend: ['AUTO', 'STREAM', 'IFRAME'], seedAutoplay: 'bool', gridCols: [1, 2, 3], fullscreenSec: 'int', qrHidden: 'bool', tvOutput: ['AUTO', 'OFF'] };
+const maskIp = t => String(t).replace(/(\bip=|cho IP )(\d{1,3})\.(\d{1,3})\.\d{1,3}\.\d{1,3}/g, '$1$2.$3.x.x');
 function buildReport() {
   const os = require('os');
   const lines = resolver.readLog(400);
@@ -103,27 +104,38 @@ function buildReport() {
   const top = Object.entries(fails).sort((a, b) => b[1] - a[1]).slice(0, 5);
   if (top.length) { head.push('Lỗi hay gặp:'); top.forEach(([r, c]) => head.push('  ' + c + ' lần: ' + r)); }
   head.push('', '=== NHẬT KÝ (60 dòng gần nhất, mới nhất ở dưới) ===');
-  return { text: head.concat(lines.slice(-60)).join('\n') || '(chưa có nhật ký)', path: resolver.logPath() };
+  return { text: maskIp(head.concat(lines.slice(-60)).join('\n')) || '(chưa có nhật ký)', path: resolver.logPath() };
 }
 const methods = {
   getReport: () => buildReport(),
   netTest: async () => {
     // Mở 8 kết nối MỚI ra internet và xem IP công cộng mỗi lần: nếu khác nhau, link YouTube (gắn với IP) sẽ hay bị 403.
     const https = require('https');
-    const one = () => new Promise(resolve => {
+    const HOSTS = ['api.ipify.org', 'checkip.amazonaws.com', 'ipv4.icanhazip.com'];
+    const one = host => new Promise(resolve => {
       const t0 = Date.now();
-      const req = https.get('https://ipv4.icanhazip.com', { agent: false, family: 4, headers: { Connection: 'close' }, timeout: 8000 }, r => {
-        let b = ''; r.on('data', d => { b += d; }); r.on('end', () => resolve({ ip: b.trim().slice(0, 40), ms: Date.now() - t0 }));
+      const req = https.get({ host, path: '/', agent: false, family: 4, headers: { Connection: 'close', 'User-Agent': 'curl/8.0' }, timeout: 8000 }, r => {
+        let b = ''; r.on('data', d => { b += d; });
+        r.on('end', () => { const ip = (/\b(\d{1,3}\.){3}\d{1,3}\b/.exec(b) || [''])[0]; resolve({ host, ip, st: r.statusCode, ms: Date.now() - t0, note: ip ? '' : 'trả về không có IP (HTTP ' + r.statusCode + ', ' + b.length + ' byte)' }); });
       });
       req.on('timeout', () => req.destroy(new Error('timeout')));
-      req.on('error', e => resolve({ ip: 'lỗi ' + (e.code || e.message), ms: Date.now() - t0 }));
+      req.on('error', e => resolve({ host, ip: '', st: 0, ms: Date.now() - t0, note: 'lỗi ' + (e.code || e.message) }));
     });
     const list = [];
-    for (let i = 0; i < 8; i++) list.push(await one());
-    const ips = [...new Set(list.map(x => x.ip))];
-    const lines = ['KIỂM TRA IP RA INTERNET (8 kết nối mới)'].concat(list.map((x, i) => '  #' + (i + 1) + ': ' + x.ip + '  (' + x.ms + ' ms)'));
-    lines.push('', ips.length > 1 ? 'KẾT LUẬN: IP THAY ĐỔI giữa các kết nối (' + ips.length + ' IP khác nhau) -> mạng của bạn có nhiều đường ra (cân bằng tải/CGNAT/VPN). Đây là nguyên nhân gây 403.' : 'KẾT LUẬN: IP ổn định (' + ips[0] + ').');
-    resolver.log('NETTEST ' + ips.join(','));
+    for (let i = 0; i < 8; i++) {
+      let r = null;
+      for (const h of HOSTS) { r = await one(h); if (r.ip) break; }
+      list.push(r);
+    }
+    const ips = [...new Set(list.map(x => x.ip).filter(Boolean))];
+    const label = ip => 'IP-' + String.fromCharCode(65 + ips.indexOf(ip)); // A, B, C... (không lộ IP thật)
+    const mask = ip => ip ? ip.split('.').slice(0, 2).join('.') + '.x.x' : '';
+    const lines = ['KIỂM TRA IP RA INTERNET (8 kết nối mới; IP được che, chỉ giữ nhãn A/B/...)'].concat(list.map((x, i) => '  #' + (i + 1) + ': ' + (x.ip ? label(x.ip) + ' (' + mask(x.ip) + ')' : '(không lấy được)') + '  [' + x.host + ', ' + x.ms + ' ms]' + (x.note ? ' ' + x.note : '')));
+    lines.push('');
+    if (!ips.length) lines.push('KẾT LUẬN: KHÔNG ĐO ĐƯỢC (không dịch vụ nào trả về IP) -> chưa kết luận gì về IP.');
+    else if (ips.length > 1) lines.push('KẾT LUẬN: IP THAY ĐỔI giữa các kết nối (' + ips.length + ' IP khác nhau) -> mạng có nhiều đường ra (cân bằng tải/CGNAT/VPN).');
+    else lines.push('KẾT LUẬN: IP ổn định (cả ' + list.filter(x => x.ip).length + '/8 lần đo cùng một IP).');
+    resolver.log('NETTEST ' + (ips.length ? ips.length + ' IP khác nhau' : 'không đo được'));
     return lines.join('\n');
   },
   clearLog: () => { resolver.clearLog(); return true; },
