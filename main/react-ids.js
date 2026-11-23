@@ -1,0 +1,3 @@
+'use strict';
+// Danh sách hiệu ứng cổ vũ hợp lệ (giống bản Android)
+module.exports = new Set(["heart","clap","party","fire","star","laugh","love","mic","rose","firework","like","beer","crown","dance","balloon","cry","rainbow","unicorn","rocket","lightning","snow","sakura","butterfly","diamond","trophy","champagne","cheers","guitar","drum","cool","partyface","wow","kiss","ghost","cake","money","meteor","sun","moon","whale","dolphin","pizza","icecream","popcorn","gift","sax","trumpet","dragon","catlove","skull","ufo","clover","firecracker","bomb","hundred","muscle","volcano","wave","galaxy","sparkler","lantern","lixi","xmas","tiger","panda","frog","eagle","burger","coffee","sunflower","ring","medal","racecar","plane","pray","mindblow"]);

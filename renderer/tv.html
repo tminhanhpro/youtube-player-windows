@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Youtube Player - TV</title>
+<style>
+html,body{margin:0;height:100%;background:#000;overflow:hidden;cursor:none;font-family:"Segoe UI",system-ui,sans-serif;color:#fff}
+#vbox{position:fixed;inset:0;background:#000}
+#idle{position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;color:#9a9ab0;font-size:2.2vw;font-weight:700;text-align:center;white-space:pre-line;transition:opacity .4s}
+#idle img{height:12vw;opacity:.9}
+#idle.off{opacity:0;pointer-events:none}
+#fx{position:absolute;inset:0;z-index:5;pointer-events:none}
+#volbox{position:fixed;left:50%;bottom:15%;transform:translateX(-50%);z-index:50;background:#000b;border-radius:16px;padding:16px 32px 20px;text-align:center;font-size:2vw;font-weight:700}
+.vbar{width:20vw;height:10px;border-radius:5px;background:#fff6;margin-top:10px;overflow:hidden}.vbar i{display:block;height:100%;background:#ff1744}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div id="vbox">
+  <div id="idle"><img src="logo_mark.png" alt=""><div id="idleText"></div></div>
+  <div id="fx"></div>
+</div>
+<div id="volbox" hidden><div id="voltext"></div><div class="vbar"><i id="volfill"></i></div></div>
+<script src="player.js"></script>
+<script src="reactions.js"></script>
+<script src="messages.js"></script>
+<script src="tv.js"></script>
+</body>
+</html>

@@ -1,0 +1,58 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+html,body{margin:0;padding:0;width:100%;height:100%;background:#000;overflow:hidden}
+#p{position:absolute;top:0;left:0;width:100%;height:100%}
+</style>
+</head>
+<body>
+<div id="p"></div>
+<script>
+// Trình phát YouTube nhúng (dự phòng khi không lấy được luồng trực tiếp). Nhận lệnh từ trang cha qua postMessage.
+var yt = null, ready = false, pend = null, key = '', vol = 100, timer = null, muted = false;
+function up(msg) { parent.postMessage(msg, location.origin); }
+
+function onYouTubeIframeAPIReady() {
+  yt = new YT.Player('p', {
+    width: '100%', height: '100%',
+    playerVars: { autoplay: 1, controls: 0, rel: 0, modestbranding: 1, playsinline: 1, iv_load_policy: 3,
+                  disablekb: 1, fs: 0, origin: location.origin },
+    events: {
+      onReady: function () { ready = true; if (pend) { var a = pend; pend = null; load(a); } },
+      onStateChange: function (e) {
+        if (e.data === 0) up({ ytp: 1, kind: 'ended', key: key });
+        if (e.data === 1) up({ ytp: 1, kind: 'started', key: key });
+      },
+      onError: function () { up({ ytp: 1, kind: 'error', key: key }); }
+    }
+  });
+}
+function applyVol() { if (!ready) return; if (muted) yt.mute(); else { yt.unMute(); yt.setVolume(vol); } }
+function load(m) {
+  key = m.key;
+  if (!ready) { pend = m; return; }
+  yt.loadVideoById({ videoId: m.videoId, startSeconds: Math.floor((m.startMs || 0) / 1000) });
+  applyVol();
+  if (m.paused) setTimeout(function () { try { yt.pauseVideo(); } catch (e) {} }, 800);
+  if (!timer) timer = setInterval(function () {
+    try { up({ ytp: 1, kind: 'pos', key: key, a: yt.getCurrentTime() * 1000, b: yt.getDuration() * 1000 }); } catch (e) {}
+  }, 1000);
+}
+window.addEventListener('message', function (e) {
+  if (e.origin !== location.origin) return;
+  var m = e.data || {};
+  if (m.fn === 'load') load(m);
+  else if (!ready) return;
+  else if (m.fn === 'pause') yt.pauseVideo();
+  else if (m.fn === 'resume') yt.playVideo();
+  else if (m.fn === 'seek') yt.seekTo(m.ms / 1000, true);
+  else if (m.fn === 'volume') { vol = m.v; applyVol(); }
+  else if (m.fn === 'mute') { muted = !!m.on; applyVol(); }
+  else if (m.fn === 'stop') { key = ''; pend = null; yt.stopVideo(); }
+});
+</script>
+<script src="https://www.youtube.com/iframe_api"></script>
+</body>
+</html>

@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Youtube Player</title>
+<link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+<div id="dash">
+  <header class="top">
+    <img src="logo_mark.png" class="logo" alt="">
+    <h1>Youtube Player</h1><span class="tag">MUSIC TV</span>
+    <span id="remoteDot" class="ic dotic"></span><span id="remote" class="remote">Chờ điện thoại kết nối</span>
+    <span class="grow"></span>
+    <span class="chip"><span id="netIcon" class="ic"></span><span id="netText">Offline</span></span>
+    <span id="clock" class="clock"></span>
+  </header>
+  <div class="body">
+    <aside class="left">
+      <div class="card qrcard">
+        <div class="qhead">
+          <div class="qt">QUÉT KẾT NỐI<br>REMOTE</div>
+          <span id="port" class="portpill"></span>
+          <button id="qrToggle" class="mini nav">Ẩn</button>
+        </div>
+        <div id="qrBody">
+          <img id="qr" alt="QR" hidden>
+          <div id="qrCap" class="qcap">Mở camera quét để điều khiển</div>
+          <div id="qrUrl" class="muted qurl"></div>
+        </div>
+      </div>
+      <button id="addCat" class="dashed nav"><span class="ic" data-i="plus"></span>Tạo Thể Loại Mới</button>
+      <button id="favBtn" class="favbtn nav"><span class="ic" data-i="heart"></span>Yêu Thích</button>
+      <div class="lbl">DANH MỤC ÂM NHẠC</div>
+      <div id="cats" class="scroll"></div>
+      <div class="foot">
+        <span class="ic gdot" data-i="dot"></span><span id="qual" class="muted ell"></span>
+        <button id="gear" class="gear nav"><span class="ic" data-i="gear"></span>Cài đặt</button>
+      </div>
+    </aside>
+
+    <section class="center">
+      <div class="sbar">
+        <button id="mic" class="micbtn nav" title="Tìm bằng giọng nói"><span class="ic" data-i="mic"></span></button>
+        <div id="sfield" class="sfield">
+          <span class="ic" data-i="search"></span>
+          <input id="q" class="nav" type="text" placeholder="Nhập tên bài hát, ca sĩ hoặc dán link YouTube" autocomplete="off" spellcheck="false">
+          <span class="hint"><kbd>Enter</kbd>Chọn</span><span class="hint"><kbd>Shift</kbd>Ưu tiên</span>
+        </div>
+        <button id="karaoke" class="karaoke nav"><i></i><span>Karaoke</span></button>
+      </div>
+      <div id="status" class="status"></div>
+      <div id="grid" class="scroll grid"></div>
+    </section>
+
+    <aside class="right">
+      <div class="card now">
+        <div class="nhead"><span class="ic red" data-i="dot"></span><b>ĐANG PHÁT</b><span class="grow"></span><span class="ic red" data-i="eq"></span></div>
+        <div id="slot" class="slot">
+          <div id="vbox" class="vbox">
+            <div id="idle" class="idle"></div>
+            <span id="res" class="vtag"></span>
+            <span id="badge" class="badge">NOW PLAYING</span>
+            <div id="count" class="count" hidden></div>
+            <button id="fsBtn" class="fsbtn nav" title="Phóng to (F)"><span class="ic" data-i="fullscreen"></span></button>
+          </div>
+        </div>
+        <div id="title" class="title ell">Chưa có bài hát</div>
+        <div id="sub" class="muted sub ell"></div>
+        <div class="prog"><span id="tl">00:00</span><div id="bar" class="bar"><i id="barFill"></i></div><span id="tr">00:00</span></div>
+        <div class="ctl">
+          <button id="b-back" class="cb nav"><span class="ic" data-i="rew"></span><em>Lùi 10s</em></button>
+          <button id="b-play" class="cb red nav"><span class="ic" id="playIc" data-i="pause"></span><em>Phát / Dừng</em></button>
+          <button id="b-next" class="cb nav"><span class="ic" data-i="next"></span><em>Bài tiếp</em></button>
+          <button id="b-fwd" class="cb nav"><span class="ic" data-i="ff"></span><em>Tua 10s</em></button>
+        </div>
+      </div>
+      <div class="card queue">
+        <div class="qh"><b>HÀNG ĐỢI TIẾP THEO</b><span id="qcount" class="pill">0 bài</span></div>
+        <div id="qlist" class="scroll"></div>
+        <div class="qf"><span id="qtotal" class="muted ell"></span><button id="addSong" class="link nav">Thêm bài hát</button></div>
+      </div>
+    </aside>
+  </div>
+</div>
+<div id="fxl" class="fxl"></div>
+<div id="volbox" class="volbox" hidden><div id="voltext"></div><div class="vbar"><i id="volfill"></i></div></div>
+<div id="toast" class="toast" hidden></div>
+<div id="modal" class="modal" hidden></div>
+<script src="icons.js"></script>
+<script src="player.js"></script>
+<script src="reactions.js"></script>
+<script src="messages.js"></script>
+<script src="dashboard.js"></script>
+</body>
+</html>

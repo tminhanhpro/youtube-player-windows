@@ -1,0 +1,14 @@
+{
+  "_note": "Bài phát tự động khi hàng đợi trống. 'queries' = từ khoá tìm kiếm nhạc (app tự tìm). 'videos' = danh sách cố định (tuỳ chọn).",
+  "queries": [
+    "nhạc acoustic hòa tấu thư giãn",
+    "saxophone jazz thư giãn",
+    "chill lofi beats relax",
+    "nhạc trẻ hay nhất",
+    "nhạc trữ tình quê hương",
+    "nhạc không lời piano guitar",
+    "nhạc bolero hòa tấu",
+    "hòa tấu rumba saxophone"
+  ],
+  "videos": []
+}

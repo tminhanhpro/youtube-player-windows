@@ -1,0 +1,53 @@
+name: Build EXE (Windows)
+
+# Bấm Actions -> "Build EXE (Windows)" -> Run workflow để build.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - name: Lay ma nguon
+        uses: actions/checkout@v4
+
+      - name: Cai Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Cai thu vien
+        run: npm install --no-audit --no-fund
+
+      - name: Kiem tra phan nen
+        run: npm run check
+
+      - name: Tai yt-dlp va deno (de lay link video)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path bin | Out-Null
+          Invoke-WebRequest -Uri "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe" -OutFile "bin/yt-dlp.exe"
+          Invoke-WebRequest -Uri "https://github.com/denoland/deno/releases/latest/download/deno-x86_64-pc-windows-msvc.zip" -OutFile "deno.zip"
+          Expand-Archive -Path deno.zip -DestinationPath bin -Force
+          Get-ChildItem bin
+
+      - name: Build EXE
+        run: npx electron-builder --win portable --x64 --publish never -c.extraMetadata.version=1.${{ github.run_number }}.0
+
+      - name: Luu file EXE (tai tu muc Artifacts)
+        uses: actions/upload-artifact@v4
+        with:
+          name: youtube-player-exe
+          path: dist/youtube-player.exe
+
+      - name: Tao ban phat hanh (tai truc tiep tu muc Releases)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: win-v1.${{ github.run_number }}
+          name: Youtube Player Windows v1.${{ github.run_number }}
+          body: Tai file youtube-player.exe ben duoi, bam dup de chay (khong can cai dat).
+          files: dist/youtube-player.exe

@@ -1,0 +1,54 @@
+# YOUTUBE PLAYER cho Windows
+
+Bản Windows của Youtube Player (Electron). Giữ nguyên remote điện thoại (quét QR) của bản Android TV.
+
+## Build file .exe trên GitHub
+1. Đưa toàn bộ thư mục này lên một kho GitHub (có thể là kho riêng, hoặc để cạnh bản Android – hai workflow không đụng nhau).
+2. Vào **Actions → Build EXE (Windows) → Run workflow**.
+3. Xong, tải `youtube-player.exe` ở mục **Releases** (hoặc Artifacts). Bấm đúp là chạy, không cần cài.
+Workflow không ghi `version.txt`, nên không gây xung đột. Số phiên bản = số lần chạy workflow.
+
+## Lần đầu chạy
+Windows sẽ hỏi cho phép **Tường lửa** → chọn **Cho phép trên mạng riêng tư**, nếu không điện thoại sẽ không kết nối được.
+Điện thoại và máy tính phải cùng Wi-Fi/LAN.
+
+## Tiến độ các giai đoạn
+- [x] GĐ1: nền tảng (server, hàng đợi, tìm kiếm, remote điện thoại, build exe)
+- [x] GĐ2: phát video trong cửa sổ (yt-dlp + proxy, dự phòng khung YouTube nhúng)
+- [x] GĐ3: giao diện 3 cột đầy đủ (thể loại, yêu thích, karaoke, cài đặt)
+- [x] GĐ4: xuất HDMI chỉ khung phát
+- [x] GĐ5: hiệu ứng cổ vũ (76 loại) + tin nhắn chạy từ điện thoại
+
+## Chạy thử khi phát triển
+`npm install`, `npm run check` (kiểm tra nền), `npm start`. Cần đặt `yt-dlp.exe` và `deno.exe` vào thư mục `bin/` để lấy link video.
+
+## Phím tắt và chuột (thay cho remote TV)
+| Thao tác | Tác dụng |
+|---|---|
+| Click / **Enter** trên bài | Thêm vào hàng đợi (nếu chưa phát gì thì phát ngay) |
+| **Shift**+click / Shift+Enter | Ưu tiên: đưa lên đầu hàng đợi |
+| **Chuột phải** / giữ Enter / phím Menu | Thêm bài vào Yêu thích (trong mục Yêu thích: xoá) |
+| Click bài ở hàng đợi | Phát ngay · chuột phải hoặc Delete: xoá khỏi hàng đợi |
+| Chuột phải / Delete trên thể loại | Xoá thể loại (có hộp xác nhận, mặc định "GIỮ LẠI") |
+| Mũi tên | Di chuyển giữa các ô |
+| **F** hoặc **I** hoặc nút ⛶ | Phóng to video · bất kỳ phím/chuột nào: thu nhỏ |
+| Space / phím Play-Pause | Tạm dừng / phát · Media Next: bài tiếp |
+| Ctrl+←/→ | Lùi/tua 10 giây · `+`/`-`: âm lượng · `/`: ô tìm kiếm · F11: toàn màn hình cửa sổ |
+
+Tự phóng to sau 5 giây không thao tác (đổi trong Cài đặt), 5 giây cuối đếm ngược 5→0.
+Tìm bằng giọng nói: nút micro thử dùng nhận dạng giọng nói của Chromium; nếu máy không hỗ trợ sẽ báo và bạn gõ hoặc dùng điện thoại.
+
+## Xuất ra màn hình lớn (HDMI / máy chiếu)
+1. Mở app, rồi cắm HDMI. Nhấn **Win + P** và chọn **Mở rộng (Extend)**. Không chọn "Nhân đôi" (Duplicate) vì khi đó Windows chiếu nguyên màn hình laptop và app không điều khiển được.
+2. App tự mở một cửa sổ toàn màn hình trên màn hình lớn, **chỉ chứa video** (không có 3 cột). Giao diện đầy đủ ở lại trên laptop.
+3. Khung phát nhỏ trên laptop vẫn chạy song song (tắt tiếng, tự đồng bộ với màn lớn) và ghi "ĐANG XUẤT RA TV". Tiếng phát ra màn lớn.
+4. Rút HDMI: cửa sổ TV tự đóng, bài đang phát tiếp tục trên laptop (có tiếng), không mất vị trí.
+5. Cài đặt → "Xuất ra màn hình ngoài (HDMI)": TỰ ĐỘNG / TẮT.
+
+Nếu tiếng không ra TV: vào Cài đặt âm thanh của Windows, đặt thiết bị HDMI (tên TV/Display Audio) làm thiết bị phát mặc định.
+Cửa sổ TV không cướp phím của laptop; khi đang xuất ra TV, video trên laptop không tự phóng to.
+
+## Hiệu ứng từ điện thoại
+Nút "Cổ vũ" trên remote điện thoại (76 hiệu ứng: thả tim, pháo giấy, pháo hoa, rồng, cá voi...) và tin nhắn chữ chạy sẽ hiện phủ lên video.
+Khi đang xuất ra màn hình lớn thì hiệu ứng chạy trên màn lớn (không chạy trùng ở laptop).
+Ghi chú: bản Android không có dòng chữ "Tiếp theo" chạy trên màn hình nên bản Windows cũng không có.
