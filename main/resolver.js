@@ -39,7 +39,7 @@ function exe(name) {
 }
 
 // Mỗi biến thể là một bộ client YouTube khác nhau: có client cho link bị 403 (cần PO token), có client thì không.
-const VARIANTS = [[], ['--extractor-args', 'youtube:player_client=android_vr'], ['--extractor-args', 'youtube:player_client=tv']];
+const VARIANTS = [[], ['--extractor-args', 'youtube:player_client=android_vr']];
 const variantOf = new Map(); // videoId -> biến thể đang dùng
 let preferred = 0;           // biến thể đã từng phát thành công
 const vOf = id => (variantOf.has(id) ? variantOf.get(id) : preferred);
@@ -137,8 +137,8 @@ async function resolve(id, maxH) {
       const info = await runYtDlp('https://www.youtube.com/watch?v=' + id, v);
       const r = build(info, maxH);
       cache.set(k, r);
-      let cl = '?'; try { cl = new URL(r.sources[0].video.url).searchParams.get('c') || '?'; } catch (x) { /* ignore */ }
-      log('OK ' + id + ' ' + (Date.now() - t0) + 'ms client=' + cl + ' biến thể=' + v + ' nguồn=' + r.sources.length);
+      let cl = '?', ip = '?'; try { const q = new URL(r.sources[0].video.url).searchParams; cl = q.get('c') || '?'; ip = q.get('ip') || '?'; } catch (x) { /* ignore */ }
+      log('OK ' + id + ' ' + (Date.now() - t0) + 'ms client=' + cl + ' ip=' + ip + ' biến thể=' + v + ' nguồn=' + r.sources.length);
       return r;
     } catch (e) { log('FAIL ' + id + ' ' + (Date.now() - t0) + 'ms: ' + (e && e.message)); throw e; }
   })();

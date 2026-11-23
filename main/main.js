@@ -107,6 +107,25 @@ function buildReport() {
 }
 const methods = {
   getReport: () => buildReport(),
+  netTest: async () => {
+    // Mở 8 kết nối MỚI ra internet và xem IP công cộng mỗi lần: nếu khác nhau, link YouTube (gắn với IP) sẽ hay bị 403.
+    const https = require('https');
+    const one = () => new Promise(resolve => {
+      const t0 = Date.now();
+      const req = https.get('https://ipv4.icanhazip.com', { agent: false, family: 4, headers: { Connection: 'close' }, timeout: 8000 }, r => {
+        let b = ''; r.on('data', d => { b += d; }); r.on('end', () => resolve({ ip: b.trim().slice(0, 40), ms: Date.now() - t0 }));
+      });
+      req.on('timeout', () => req.destroy(new Error('timeout')));
+      req.on('error', e => resolve({ ip: 'lỗi ' + (e.code || e.message), ms: Date.now() - t0 }));
+    });
+    const list = [];
+    for (let i = 0; i < 8; i++) list.push(await one());
+    const ips = [...new Set(list.map(x => x.ip))];
+    const lines = ['KIỂM TRA IP RA INTERNET (8 kết nối mới)'].concat(list.map((x, i) => '  #' + (i + 1) + ': ' + x.ip + '  (' + x.ms + ' ms)'));
+    lines.push('', ips.length > 1 ? 'KẾT LUẬN: IP THAY ĐỔI giữa các kết nối (' + ips.length + ' IP khác nhau) -> mạng của bạn có nhiều đường ra (cân bằng tải/CGNAT/VPN). Đây là nguyên nhân gây 403.' : 'KẾT LUẬN: IP ổn định (' + ips[0] + ').');
+    resolver.log('NETTEST ' + ips.join(','));
+    return lines.join('\n');
+  },
   clearLog: () => { resolver.clearLog(); return true; },
   openLogFolder: () => { const p = resolver.logPath(); if (p) shell.showItemInFolder(p); return !!p; },
   logRenderer: msg => { resolver.log('UI ' + String(msg).slice(0, 400)); return true; },

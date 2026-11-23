@@ -64,3 +64,6 @@ Electron không có dịch vụ nhận giọng nói của Google, nên nút micr
 
 ## Lỗi 403 khi tải luồng video
 googlevideo có thể từ chối (HTTP 403) tùy cách yêu cầu hoặc tùy "client" YouTube mà yt-dlp dùng. Proxy thử lần lượt: tải theo kiểu yt-dlp (`&range=`) rồi tới Range header; nếu vẫn 403 thì app đổi client YouTube (android_vr, tv) và nhớ client nào phát được. Dòng nhật ký `PROXY dùng cách ...`, `ĐỔI client ...`, `Nhớ biến thể ...` cho biết app đã chọn gì.
+
+## Nếu vẫn bị 403: kiểm tra IP mạng
+Link YouTube gắn với IP công cộng lúc lấy link. Nếu mạng có nhiều đường ra (cân bằng tải, CGNAT, VPN...), mỗi kết nối mới có thể ra bằng IP khác và bị từ chối. App giữ một kết nối bền cho mỗi luồng và tự mở kết nối mới khi bị 403. **Cài đặt → Báo cáo lỗi → Kiểm tra IP mạng** mở 8 kết nối mới và cho biết IP có đổi không.

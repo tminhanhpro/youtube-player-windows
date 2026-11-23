@@ -1,14 +1,30 @@
 'use strict';
 const crypto = require('crypto');
-const { Readable } = require('stream');
-
+const http = require('http');
+const https = require('https');
 const resolver = require('./resolver');
+
 const CHUNK = 4 * 1024 * 1024; // YouTube bóp tốc độ nếu tải một mạch -> tải từng đoạn 4 MB (giống bản Android)
 
-/**
- * Proxy luồng video: cửa sổ phát http://127.0.0.1:PORT/internal/s/<id>; proxy lấy từng đoạn từ googlevideo
- * (có Range, đúng User-Agent) nên không bị bóp tốc độ, không vướng CORS/Referer.
- */
+// Mỗi luồng có kết nối riêng, GIỮ SỐNG lâu: link googlevideo gắn với IP lúc lấy link, nếu mạng có nhiều đường ra
+// internet thì mỗi kết nối mới có thể ra bằng IP khác và bị 403. Bị 403 thì mở kết nối mới (có thể ra đúng IP).
+function newAgent(isHttps) {
+  const o = { keepAlive: true, keepAliveMsecs: 30000, maxSockets: 2, maxFreeSockets: 2, timeout: 120000 };
+  return isHttps ? new https.Agent(o) : new http.Agent(o);
+}
+
+/** GET có agent riêng, IPv4 (khớp yt-dlp -4). Trả IncomingMessage (chưa đọc body). */
+function request(url, headers, agent, signal) {
+  return new Promise((resolve, reject) => {
+    const u = new URL(url);
+    const lib = u.protocol === 'https:' ? https : http;
+    const req = lib.request(u, { method: 'GET', headers, agent, family: 4, signal }, resolve);
+    req.setTimeout(10000, () => req.destroy(new Error('ETIMEDOUT')));
+    req.on('error', reject);
+    req.end();
+  });
+}
+
 class StreamProxy {
   constructor(getBase) {
     this.getBase = getBase;
@@ -69,36 +85,48 @@ class StreamProxy {
     return order;
   }
 
+  renewAgent(e) {
+    const old = e.agent; e.agent = null;
+    if (old) setTimeout(() => { try { old.destroy(); } catch (x) { /* ignore */ } }, 15000);
+  }
+
   /**
-   * Tải một đoạn, thử lần lượt các cách (googlevideo hay 403 với cách này nhưng được với cách kia).
-   * Lỗi mạng thì thử lại 2 lần (10 giây/lần); lỗi HTTP thì chuyển cách khác ngay.
+   * Tải một đoạn. Thử cách 'param' (&range=) và 'header' (Range); nếu bị từ chối hoặc lỗi mạng thì MỞ KẾT NỐI MỚI
+   * rồi thử lại (tối đa 4 vòng). Trả { res: IncomingMessage, mode }.
    */
   async fetchRange(e, start, end, outer) {
     const tried = [];
-    for (const mode of this.modesFor(e)) {
-      for (let i = 0; i < 2; i++) {
+    let isHttps = false; try { isHttps = new URL(e.url).protocol === 'https:'; } catch (x) { /* ignore */ }
+    for (let round = 0; round < 4; round++) {
+      for (const mode of this.modesFor(e)) {
         if (outer && outer.aborted) throw new Error('aborted');
+        if (!e.agent) e.agent = newAgent(isHttps);
         const rq = this.buildReq(e, start, end, mode);
-        const sig = outer ? AbortSignal.any([outer, AbortSignal.timeout(10000)]) : AbortSignal.timeout(10000);
+        const sig = outer ? AbortSignal.any([outer, AbortSignal.timeout(15000)]) : AbortSignal.timeout(15000);
         try {
-          const r = await fetch(rq.url, { headers: rq.headers, signal: sig });
-          const want = end - start + 1, cl = Number(r.headers.get('content-length') || 0);
-          const okStatus = mode === 'param' ? r.status === 200 || r.status === 206 : r.status === 206 || (r.status === 200 && start === 0);
+          const r = await request(rq.url, rq.headers, e.agent, sig);
+          const want = end - start + 1, cl = Number(r.headers['content-length'] || 0);
+          const st = r.statusCode;
+          const okStatus = mode === 'param' ? (st === 200 || st === 206) : (st === 206 || (st === 200 && start === 0));
           if (okStatus && !(mode === 'param' && cl && cl > want)) {
-            if (e.mode !== mode) { e.mode = mode; resolver.log('PROXY dùng cách ' + mode + (tried.length ? ' (sau khi ' + tried.join(', ') + ')' : '')); }
+            if (e.mode !== mode || round > 0) {
+              e.mode = mode;
+              resolver.log('PROXY dùng cách ' + mode + (round ? ' sau ' + round + ' lần mở kết nối mới' : '') + (tried.length ? ' (' + tried.join(', ') + ')' : ''));
+            }
             return { res: r, mode };
           }
-          tried.push(mode + ':' + r.status);
-          try { r.body && r.body.cancel(); } catch (x) { /* ignore */ }
-          break; // lỗi HTTP -> sang cách khác
+          tried.push(mode + ':' + st);
+          r.resume();
         } catch (err) {
           if (outer && outer.aborted) throw err;
-          tried.push(mode + ':' + (err && err.cause && err.cause.code || err && err.name || 'lỗi mạng'));
-          await new Promise(res => setTimeout(res, 300));
+          tried.push(mode + ':' + (err && err.code || err && err.message || 'lỗi mạng'));
         }
       }
+      this.renewAgent(e); // kết nối mới có thể ra internet bằng IP khác
+      await new Promise(res => setTimeout(res, 250));
     }
-    resolver.log('PROXY FAIL bytes=' + start + '-' + end + ' ' + tried.join(' | '));
+    let ip = '?'; try { ip = new URL(e.url).searchParams.get('ip') || '?'; } catch (x) { /* ignore */ }
+    resolver.log('PROXY FAIL bytes=' + start + '-' + end + ' (link cấp cho IP ' + ip + ') ' + tried.slice(0, 8).join(' | '));
     throw new Error('proxy: ' + tried.join(' | '));
   }
 
@@ -108,13 +136,13 @@ class StreamProxy {
       if (c > 0) return c;
     } catch (x) { /* ignore */ }
     const { res: r } = await this.fetchRange({ ...e, mode: 'header' }, 0, 1, outer);
-    const cr = r.headers.get('content-range');
-    try { r.body && r.body.cancel(); } catch (x) { /* ignore */ }
+    r.resume();
+    const cr = r.headers['content-range'];
     const m = cr && /\/(\d+)$/.exec(cr);
     if (m) return Number(m[1]);
-    const cl = Number(r.headers.get('content-length') || 0);
-    if (r.status === 200 && cl > 0) return cl;
-    throw new Error('Không biết dung lượng luồng (HTTP ' + r.status + ')');
+    const cl = Number(r.headers['content-length'] || 0);
+    if (r.statusCode === 200 && cl > 0) return cl;
+    throw new Error('Không biết dung lượng luồng (HTTP ' + r.statusCode + ')');
   }
 
   /** Xử lý GET /internal/s/<id>. Trả true nếu đã xử lý. */
@@ -138,9 +166,9 @@ class StreamProxy {
         'content-type': e.mime, 'accept-ranges': 'bytes', 'cache-control': 'no-store',
         'content-range': 'bytes ' + start + '-' + end + '/' + total, 'content-length': end - start + 1
       });
-      const body = Readable.fromWeb(up.body);
-      body.on('error', () => { try { res.destroy(); } catch (x) { /* ignore */ } });
-      body.pipe(res);
+      up.on('error', () => { try { res.destroy(); } catch (x) { /* ignore */ } });
+      res.on('close', () => { try { up.destroy(); } catch (x) { /* ignore */ } });
+      up.pipe(res);
     } catch (err) {
       if (!res.headersSent) { res.writeHead(502); res.end(); } else { try { res.destroy(); } catch (x) { /* ignore */ } }
     }

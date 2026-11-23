@@ -379,6 +379,7 @@ async function showReport() {
     buttons: [
       { label: 'Sao chép', primary: true, run: () => { navigator.clipboard.writeText(r.text + '\n\nFile: ' + r.path).then(() => toast('Đã sao chép báo cáo'), () => toast('Không sao chép được')); } },
       { label: 'Mở thư mục', run: () => bridge.call('openLogFolder') },
+      { label: 'Kiểm tra IP mạng', run: async () => { toast('Đang kiểm tra (khoảng 10 giây)…'); let t; try { t = await bridge.call('netTest'); } catch (e) { t = 'Lỗi: ' + e.message; } modal({ title: 'Kiểm tra IP mạng', pre: t, buttons: [{ label: 'Sao chép', primary: true, run: () => navigator.clipboard.writeText(t).then(() => toast('Đã sao chép')) }, { label: 'Đóng' }] }); } },
       { label: 'Xóa nhật ký', run: async () => { await bridge.call('clearLog'); toast('Đã xóa nhật ký'); } },
       { label: 'Đóng' }
     ], focus: 0
