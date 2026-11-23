@@ -96,7 +96,13 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   fs.writeFileSync(f1, wav(6));
 
   // --- phát thật trong Chromium: tv.html + player.js + file qua proxy ---
-  const { chromium } = require('playwright');
+  let chromium = null;
+  try { ({ chromium } = require('playwright')); } catch (e) { /* CI không cài playwright: bỏ qua phần phát thật */ }
+  if (!chromium) {
+    srv.close(); fs.rmSync(root, { recursive: true, force: true });
+    console.log('Nhạc/video trong máy: thư viện + hàng đợi + máy chủ file đạt (bỏ qua phần phát thật trong Chromium vì chưa cài playwright)');
+    process.exit(0);
+  }
   const browser = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required'] });
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
   const errors = []; page.on('pageerror', e => errors.push(String(e)));
