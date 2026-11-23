@@ -56,7 +56,7 @@ const MOCK = () => {
   await page.click('#karaoke'); await page.waitForTimeout(150);
   assert.ok(await page.locator('#karaoke').evaluate(e => e.classList.contains('on')));
   await page.click('#gear'); await page.waitForTimeout(200);
-  assert.equal(await page.locator('.dlist button').count(), 9);
+  assert.equal(await page.locator('.dlist button').count(), 14);   // 10 mục cũ + 3 mục MC/fade + 1 mục tự hạ nhạc khi hiệu ứng riêng phát
   await page.screenshot({ path: '/tmp/ui-settings.png' });
   await page.keyboard.press('Escape'); await page.waitForTimeout(100);
   assert.equal(await page.locator('#modal').isHidden(), true);

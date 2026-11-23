@@ -60,7 +60,8 @@ class TvManager {
       // cho cửa sổ TV phát tiếp đúng bài/vị trí đang phát
       if (this.lastLoad && ctl.current) {
         send(this.tv, 'player', {
-          ...this.lastLoad, startMs: ctl.pos, paused: ctl.state === 'PAUSED' || ctl.userPaused, volume: ctl.volume
+          ...this.lastLoad, startMs: ctl.pos, paused: ctl.state === 'PAUSED' || ctl.userPaused, volume: ctl.volume,
+          gain: typeof ctl.currentGain === 'function' ? ctl.currentGain() : 1, fadeInMs: 0
         });
       }
     }

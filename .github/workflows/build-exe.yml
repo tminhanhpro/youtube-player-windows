@@ -3,6 +3,11 @@ name: Build EXE (Windows)
 # Bấm Actions -> "Build EXE (Windows)" -> Run workflow để build.
 on:
   workflow_dispatch:
+    inputs:
+      bundle_ffmpeg:
+        description: "Dong goi ffmpeg vao file .exe (tai hinh dep 720p tro len; file nang them khoang 100 MB)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -33,6 +38,16 @@ jobs:
           Invoke-WebRequest -Uri "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe" -OutFile "bin/yt-dlp.exe"
           Invoke-WebRequest -Uri "https://github.com/denoland/deno/releases/latest/download/deno-x86_64-pc-windows-msvc.zip" -OutFile "deno.zip"
           Expand-Archive -Path deno.zip -DestinationPath bin -Force
+          Get-ChildItem bin
+
+      - name: Tai ffmpeg (chi khi chon dong goi)
+        if: ${{ inputs.bundle_ffmpeg }}
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip" -OutFile "ffmpeg.zip"
+          Expand-Archive -Path ffmpeg.zip -DestinationPath ffmpeg-tmp -Force
+          $f = Get-ChildItem -Path ffmpeg-tmp -Recurse -Filter ffmpeg.exe | Select-Object -First 1
+          Copy-Item $f.FullName -Destination bin/ffmpeg.exe
           Get-ChildItem bin
 
       - name: Build EXE

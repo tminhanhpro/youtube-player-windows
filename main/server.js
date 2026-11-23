@@ -8,6 +8,7 @@ const resolver = require('./resolver');
 const { itemJson } = require('./controller');
 
 const REACT_IDS = require('./react-ids');
+const { Soundboard } = require('./sfx');
 
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'application/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
@@ -31,6 +32,9 @@ class KaraokeServer {
     this.failures = new Map();
     this.idem = new Map();
     this.reactTimes = [];
+    this.sfxTimes = [];
+    this.deckTimes = [];
+    this.deckNextAt = 0;
     this.lastMsgAt = 0;
     this.port = 0;
     this.extraRoutes = o.extraRoutes || null;
@@ -252,7 +256,7 @@ class KaraokeServer {
 
     if (method === 'POST' && p0 === 'player') {
       const b = await this.readBody(req);
-      let vol = null;
+      let vol = null, fade = null;
       ctl.noteActor(dev);
       switch (p1) {
         case 'skip': ctl.skip(); break;
@@ -264,11 +268,88 @@ class KaraokeServer {
           vol = b.level != null ? ctl.setVolumeAbs(Number(b.level))
             : ctl.changeVolume(Math.max(-100, Math.min(100, Number(b.delta) | 0)));
           break;
+        case 'duck': ctl.setDuck(b.on == null ? !ctl.duck : !!b.on, !!b.momentary); break;
+        case 'fadeout': fade = ctl.fadeOut(); break;
         default: throw new ApiError(404, 'NOT_FOUND', 'Not found');
       }
       const o = { state: ctl.snapshot() };
       if (vol != null) o.level = vol;
+      if (fade != null) o.fade = fade;
       return this.sendJson(res, 200, o);
+    }
+
+    // bảng hiệu ứng âm thanh riêng: điện thoại xem danh sách (không lộ đường dẫn file trên máy) và bấm để phát trên TV
+    if (p0 === 'sfx') {
+      const board = this.board || (this.board = new Soundboard(store));
+      if (method === 'GET' && !p1) {
+        return this.sendJson(res, 200, { items: board.list().map(s => ({ id: s.id, name: s.name, icon: s.icon, vol: s.vol, missing: !!s.missing })) });
+      }
+      if (method === 'POST' && p1 === 'play') {
+        const b = await this.readBody(req);
+        const sfx = board.get(String(b.id == null ? '' : b.id).slice(0, 40));
+        if (!sfx) throw new ApiError(404, 'SFX_MISSING', 'Sound not found');
+        const now = Date.now();
+        while (this.sfxTimes.length && now - this.sfxTimes[0] > 1000) this.sfxTimes.shift();
+        const pass = this.sfxTimes.length < 10;           // chống bấm dồn: tối đa 10 hiệu ứng mỗi giây từ mọi điện thoại
+        if (pass) { this.sfxTimes.push(now); ctl.noteActor(dev); ctl.sfx(sfx.id); }
+        return this.sendJson(res, 200, { ok: true, dropped: !pass });
+      }
+      if (method === 'POST' && p1 === 'stop') { await this.readBody(req); ctl.noteActor(dev); ctl.sfxStop(); return this.sendJson(res, 200, { ok: true }); }
+      throw new ApiError(404, 'NOT_FOUND', 'Not found');
+    }
+
+    // kịch bản (bộ bài): điện thoại xem danh sách bộ bài / lá bài và bấm để chạy trên máy tính.
+    // Chỉ trả những gì điện thoại cần (tên, biểu tượng, loại, mất file, đã chạy): không lộ đường dẫn file, id hiệu ứng, videoId hay nội dung chữ.
+    if (p0 === 'decks') {
+      const dk = this.decksApi;
+      if (!dk) throw new ApiError(404, 'NOT_FOUND', 'Not found');
+      const idOf = v => String(v == null ? '' : v).slice(0, 40);
+      const cardView = (c, played) => ({ id: c.id, label: c.label, icon: c.icon, type: c.type, missing: !!c.missing, played: played.has(c.id) });
+      const deckDetail = d => {
+        const lv = dk.liveOf(d.id) || { played: [], last: null, next: null };
+        const played = new Set(lv.played);
+        return { id: d.id, name: d.name, icon: d.icon, missingCount: d.missingCount, cards: d.cards.map(c => cardView(c, played)), last: lv.last, next: lv.next };
+      };
+      // chống bấm dồn: tối đa 5 lần chạy mỗi giây từ mọi điện thoại; riêng "kế tiếp" cách nhau ít nhất 0,5 giây (bấm đúp không nhảy cóc một lá)
+      const allow = (isNext) => {
+        const now = Date.now();
+        while (this.deckTimes.length && now - this.deckTimes[0] > 1000) this.deckTimes.shift();
+        if (this.deckTimes.length >= 5 || (isNext && now - this.deckNextAt < 500)) return false;
+        this.deckTimes.push(now); if (isNext) this.deckNextAt = now;
+        return true;
+      };
+      const dropped = () => ({ ok: false, dropped: true, reason: 'BUSY', msg: 'Bấm quá nhanh, thử lại', label: '', marked: false });
+      const reply = r => ({ ok: !!r.ok, reason: r.reason || null, msg: r.msg || '', label: r.label || '', marked: !!r.marked, dropped: false });
+      if (method === 'GET' && !p1) {
+        const lv = dk.live ? dk.live() : null;
+        return this.sendJson(res, 200, {
+          items: dk.list().map(d => ({ id: d.id, name: d.name, icon: d.icon, count: d.cards.length, missingCount: d.missingCount })),
+          active: lv && lv.deckId ? lv.deckId : null
+        });
+      }
+      const deck = p1 ? dk.get(idOf(p1)) : null;
+      if (p1 && !deck) throw new ApiError(404, 'DECK_MISSING', 'Deck not found');
+      if (method === 'GET' && !p2) return this.sendJson(res, 200, deckDetail(deck));
+      if (method === 'POST' && p2 === 'play') {
+        const b = await this.readBody(req);
+        const cardId = idOf(b.cardId);
+        if (!deck.cards.some(c => c.id === cardId)) throw new ApiError(404, 'CARD_MISSING', 'Card not found');
+        if (!allow(false)) return this.sendJson(res, 200, dropped());
+        ctl.noteActor(dev);
+        return this.sendJson(res, 200, reply(dk.play(deck.id, cardId)));
+      }
+      if (method === 'POST' && p2 === 'next') {
+        await this.readBody(req);
+        if (!allow(true)) return this.sendJson(res, 200, dropped());
+        ctl.noteActor(dev);
+        const r = dk.next(deck.id);
+        return this.sendJson(res, 200, { ...reply(r), cardId: r.cardId || null, skipped: (r.skipped || []).slice(0, 5), left: r.left | 0, done: !!r.done });
+      }
+      if (method === 'POST' && p2 === 'reset') {
+        await this.readBody(req); ctl.noteActor(dev);
+        return this.sendJson(res, 200, { ok: !!dk.reset(deck.id) });
+      }
+      throw new ApiError(404, 'NOT_FOUND', 'Not found');
     }
 
     if (method === 'POST' && p0 === 'react') {
@@ -332,6 +413,12 @@ class KaraokeServer {
       Cats.save(store, list);
       ctl.catsChanged();
       return this.catsReply(res);
+    }
+
+    // bài YouTube đã tải sẵn về máy: điện thoại lấy danh sách mã để hiện nhãn "Đã tải" (chỉ mã, không lộ đường dẫn file)
+    if (method === 'GET' && p0 === 'downloaded') {
+      const ids = typeof this.downloadedIds === 'function' ? this.downloadedIds() : [];
+      return this.sendJson(res, 200, { ids, ver: ctl.dlVer });
     }
 
     if (method === 'GET' && p0 === 'favs') return this.favsReply(res);

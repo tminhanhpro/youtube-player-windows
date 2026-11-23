@@ -6,22 +6,29 @@ const crypto = require('crypto');
 const { ApiError, thumb, ID_RE } = require('./util');
 const resolver = require('./resolver');
 const searchSvc = require('./search');
+const localfiles = require('./localfiles');
 
 const S = { IDLE: 'IDLE', RESOLVING: 'RESOLVING', PLAYING: 'PLAYING', PAUSED: 'PAUSED', ERROR: 'ERROR' };
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
+// MC nói: nhạc hạ xuống nhanh (0,3 giây), trở lại chậm hơn (0,8 giây) cho tự nhiên
+const DUCK_DOWN_MS = 300, DUCK_UP_MS = 800;
+const SFX_DUCK_WATCHDOG_MS = 180000; // phòng cửa sổ phát bị đóng đột ngột lúc hiệu ứng đang chạy: tự trả nhạc sau 3 phút
+// Nút giữ (phím M / nhấn giữ trên điện thoại) mà quên nhả thì tự trả nhạc sau chừng này; bên giữ gửi lại tín hiệu mỗi ~12 giây
+const DUCK_WATCHDOG_MS = 45000;
+
 function newItem(o) {
   return {
     itemId: crypto.randomUUID(), videoId: o.videoId, title: o.title, channel: o.channel || '',
     durationSec: o.durationSec | 0, addedBy: o.addedBy || null, addedAt: Date.now(),
-    status: 'PENDING', source: o.source || 'USER'
+    status: 'PENDING', source: o.source || 'USER', local: o.local || null // local = đường dẫn file trong máy
   };
 }
 function itemJson(it) {
   return {
     itemId: it.itemId, videoId: it.videoId, title: it.title, channel: it.channel,
-    thumbnailUrl: thumb(it.videoId), durationSec: it.durationSec, addedBy: it.addedBy,
+    thumbnailUrl: it.local ? '' : thumb(it.videoId), local: !!it.local, durationSec: it.durationSec, addedBy: it.addedBy,
     addedAtEpochMs: it.addedAt, status: it.status, source: it.source
   };
 }
@@ -32,9 +39,12 @@ function itemJson(it) {
  *  - cửa sổ báo lại bằng playerEvent(kind,key,a,b): started | ended | error | pos
  */
 class Controller extends EventEmitter {
-  constructor(settings, store, seedFile) {
+  /** downloads: DownloadLibrary (bài YouTube đã tải sẵn về máy) hoặc null. Có thể gắn sau bằng setDownloads(). */
+  constructor(settings, store, seedFile, downloads) {
     super();
     this.settings = settings;
+    this.downloads = downloads || null;
+    this.offlineKey = null; // itemId của bài đang phát từ file đã tải (item.local vẫn null để thẻ bài giữ thông tin YouTube)
     this.store = store;
     this.seedFile = seedFile;
     this.queue = [];
@@ -45,6 +55,11 @@ class Controller extends EventEmitter {
     this.seq = 0;
     this.karaoke = false;
     this.favVersion = 0;
+    this.dlVer = 0;          // tăng mỗi khi danh sách bài đã tải đổi: giao diện thấy số này đổi thì lấy lại danh sách mã
+    // âm lượng "mềm" (nhân thêm vào âm lượng chính): MC nói + fade out
+    this.duck = false; this.duckWd = null;
+    this.sfxDuck = false; this.sfxDuckWd = null; // hạ nhạc tự động khi hiệu ứng âm thanh riêng đang phát (độc lập với nút MC)
+    this.fading = false; this.fadedOut = false; this.fadeTimer = null;
 
     this.sources = [];
     this.srcIdx = 0;
@@ -84,7 +99,7 @@ class Controller extends EventEmitter {
     this.tickTimer = setInterval(() => { try { this.tick(); } catch (e) { /* watchdog không được chết */ } }, 1000);
     this.startNext();
   }
-  stop() { clearInterval(this.tickTimer); }
+  stop() { clearInterval(this.tickTimer); clearTimeout(this.duckWd); clearTimeout(this.sfxDuckWd); clearTimeout(this.fadeTimer); }
 
   // ---------------------------------------------------------------- tìm kiếm dùng chung TV <-> remote
   searchBegin(q, source) {
@@ -113,9 +128,16 @@ class Controller extends EventEmitter {
     return searchSvc.search(q, page, this.karaoke);
   }
 
+  setDownloads(lib) { this.downloads = lib || null; this.prefetchedId = null; }
+
   setKaraoke(on) { this.karaoke = !!on; this.emit('karaoke', this.karaoke); }
   react(id) { this.emit('reaction', id); }
+  // hiệu ứng âm thanh riêng: remote/máy tính gọi, main.js lắng nghe rồi phát
+  sfx(id) { this.emit('sfx', String(id)); }
+  sfxStop() { this.emit('sfx-stop'); }
   message(sender, text) { this.emit('message', { sender, text }); }
+  /** Danh sách bài đã tải vừa đổi (tải xong, quét lại, bài hỏng bị bỏ): báo giao diện lấy lại. */
+  noteDownloadsChanged() { this.dlVer++; }
   noteFavsChangedByRemote() { this.favVersion++; this.emit('favs'); }
   bumpFavVersion() { this.favVersion++; }
   catsChanged() { this.emit('cats'); }
@@ -146,13 +168,52 @@ class Controller extends EventEmitter {
     }
   }
 
-  add(videoId, title, channel, durationSec, addedBy, position, force) {
+  /** File trong máy: giống addFromTv (0 = phát ngay, 1 = vào hàng đợi, 2 = đã có, 3 = đầy). Đường dẫn do tiến trình chính kiểm tra trước. */
+  addLocalFromTv(filePath, priority) {
+    const id = localfiles.idFor(filePath), title = localfiles.titleOf(filePath);
+    const idle = !this.current || this.current.source === 'SEED';
+    try {
+      if (idle) {
+        this.add(id, title, '', 0, 'TV', 'next', true, filePath);
+        if (this.current && this.current.videoId !== id) this.skip();
+        return 0;
+      }
+      this.add(id, title, 'Trong máy', 0, 'TV', priority ? 'next' : 'end', false, filePath);
+      return 1;
+    } catch (e) {
+      if (e.code === 'QUEUE_FULL') return 3;
+      return 2;
+    }
+  }
+  /** "Phát ngay": đưa lên đầu hàng đợi rồi chuyển bài (cho phép phát lại dù bài đã có trong hàng đợi). */
+  playLocalNow(filePath) {
+    const id = localfiles.idFor(filePath);
+    if (this.current && this.current.videoId === id) { this.replayCurrent(); return 0; }
+    const dup = this.queue.find(i => i.videoId === id);
+    if (dup) { this.playNow(dup.itemId); return 0; }
+    try { this.add(id, localfiles.titleOf(filePath), 'Trong máy', 0, 'TV', 'next', true, filePath); } catch (e) { return 3; }
+    if (this.current && this.current.videoId !== id) this.skip();
+    return 0;
+  }
+  /** "Phát ngay" đúng bài đang phát: phát lại từ đầu (và bỏ tạm dừng), không thêm bản sao vào hàng đợi. */
+  replayCurrent() { this.restart(); if (this.userPaused) this.resume(); }
+  /** Bài YouTube "phát ngay" (dùng cho lá bài kịch bản): giống playLocalNow. 0 = ổn, 3 = hàng đợi đầy. */
+  playYoutubeNow(videoId, title, channel, durationSec) {
+    if (this.current && this.current.videoId === videoId) { this.replayCurrent(); return 0; }
+    const dup = this.queue.find(i => i.videoId === videoId);
+    if (dup) { this.playNow(dup.itemId); return 0; }
+    try { this.add(videoId, title, channel, durationSec | 0, 'TV', 'next', true); } catch (e) { return 3; }
+    if (this.current && this.current.videoId !== videoId) this.skip();
+    return 0;
+  }
+
+  add(videoId, title, channel, durationSec, addedBy, position, force, local) {
     if (this.queue.length >= 200) throw new ApiError(409, 'QUEUE_FULL', 'Queue is full');
     if (!force && this.queue.some(i => i.videoId === videoId)) throw new ApiError(409, 'DUPLICATE_PENDING', 'Already in queue');
     const noTitle = !title || !String(title).trim();
     const item = newItem({
       videoId, title: noTitle ? 'YouTube · ' + videoId : String(title).slice(0, 500),
-      channel: String(channel || '').slice(0, 200), durationSec, addedBy: addedBy ? String(addedBy).slice(0, 40) : null
+      channel: String(channel || '').slice(0, 200), durationSec, addedBy: addedBy ? String(addedBy).slice(0, 40) : null, local: local || null
     });
     if (position === 'next') this.queue.unshift(item); else this.queue.push(item);
     const wasHalted = this.halted;
@@ -196,7 +257,7 @@ class Controller extends EventEmitter {
     this.playItem(it, 0);
   }
   skip() { this.halted = false; this.consecutiveFails = 0; this.startNext(); }
-  pause() { this.userPaused = true; this.applyPause(); }
+  pause() { this.userPaused = true; this.applyPause(); this.fadeCancel(0); }
   resume() { this.userPaused = false; this.applyResume(); }
   restart() { this.cmd({ type: 'seek', ms: 0 }); }
 
@@ -206,9 +267,77 @@ class Controller extends EventEmitter {
     this.settings.maxHeight = v;
     this.prefetchedId = null;
     const cur = this.current;
-    if (cur && !this.usingIframe && (this.state === S.PLAYING || this.state === S.PAUSED)) this.playItem(cur, this.pos);
+    if (cur && !cur.local && !this.isOffline(cur) && !this.usingIframe && (this.state === S.PLAYING || this.state === S.PAUSED)) this.playItem(cur, this.pos);
     else this.publish();
     this.prefetchHead();
+  }
+
+  // ---------------------------------------------------------------- MC nói (hạ nhạc) + fade vào/ra
+  /** Hệ số nhân âm lượng khi KHÔNG đang fade: 1 bình thường, duckLevel% khi MC nói. */
+  gainTarget() { return (this.duck || this.sfxDuck) ? Math.min(100, Math.max(0, this.settings.duckLevel)) / 100 : 1; }
+  /** Hệ số hiện tại (cho cửa sổ vừa mở): đang/đã fade out thì 0. */
+  currentGain() { return this.fading || this.fadedOut ? 0 : this.gainTarget(); }
+  fadeInMs() { return Math.max(0, this.settings.fadeInSec) * 1000; }
+  applyGain(ms) {
+    if (this.fading || this.fadedOut) return; // đang fade out thì không chen vào
+    this.cmd({ type: 'gain', target: this.gainTarget(), ms });
+  }
+  /** Bật/tắt MC. momentary = kiểu giữ nút (có hẹn giờ an toàn phòng khi quên nhả). */
+  setDuck(on, momentary) {
+    on = !!on;
+    clearTimeout(this.duckWd); this.duckWd = null;
+    if (on && momentary) this.duckWd = setTimeout(() => { this.duckWd = null; this.setDuck(false); }, DUCK_WATCHDOG_MS);
+    if (on === this.duck) return this.duck;
+    const before = this.gainTarget();
+    this.duck = on;
+    if (this.gainTarget() !== before) this.applyGain(on ? DUCK_DOWN_MS : DUCK_UP_MS); // hiệu ứng riêng đang hạ sẵn thì không cần gửi lại
+    this.publish();
+    return this.duck;
+  }
+  /**
+   * Hiệu ứng âm thanh riêng đang phát -> hạ nhạc (cùng mức duckLevel với nút MC); hết thì trả nhạc.
+   * Không đụng tới cờ `duck` của MC: MC đang giữ thì hiệu ứng hết, nhạc vẫn nhỏ; không hiện chữ "MC nói".
+   */
+  setSfxDuck(on) {
+    on = !!on;
+    clearTimeout(this.sfxDuckWd); this.sfxDuckWd = null;
+    if (on) this.sfxDuckWd = setTimeout(() => { this.sfxDuckWd = null; this.setSfxDuck(false); }, SFX_DUCK_WATCHDOG_MS);
+    if (on === this.sfxDuck) return this.sfxDuck;
+    const before = this.gainTarget();
+    this.sfxDuck = on;
+    if (this.gainTarget() !== before) this.applyGain(on ? DUCK_DOWN_MS : DUCK_UP_MS);
+    return this.sfxDuck;
+  }
+  /** Đổi mức hạ nhạc trong cài đặt khi đang hạ. */
+  refreshGain() { this.applyGain(400); this.publish(); }
+  /** Bấm lần 1: nhạc nhỏ dần rồi dừng. Bấm lại giữa chừng: huỷ. Trả về 'start' | 'cancel' | 'none'. */
+  fadeOut() {
+    if (this.fading) { this.fadeCancel(600); return 'cancel'; }
+    if (this.state !== S.PLAYING) return 'none';
+    const ms = Math.max(1, this.settings.fadeOutSec) * 1000;
+    this.fading = true;
+    this.cmd({ type: 'gain', target: 0, ms });
+    this.fadeTimer = setTimeout(() => {
+      this.fadeTimer = null;
+      if (!this.fading) return;
+      this.fading = false; this.fadedOut = true;
+      this.userPaused = true; this.applyPause(); // dừng hẳn; bấm Phát sẽ vào lại bằng fade in
+      this.publish();
+    }, ms + 100);
+    this.publish();
+    return 'start';
+  }
+  fadeCancel(ms) {
+    clearTimeout(this.fadeTimer); this.fadeTimer = null;
+    if (!this.fading) return;
+    this.fading = false;
+    this.applyGain(ms);
+    this.publish();
+  }
+  /** Nạp bài mới: bỏ trạng thái fade cũ. */
+  fadeReset() {
+    clearTimeout(this.fadeTimer); this.fadeTimer = null;
+    this.fading = false; this.fadedOut = false;
   }
 
   setVolumeAbs(level) {
@@ -244,14 +373,20 @@ class Controller extends EventEmitter {
     else if (this.state === S.RESOLVING) this.publish();
   }
   applyResume() {
-    if (this.state === S.PAUSED) { this.cmd({ type: 'resume' }); this.state = S.PLAYING; this.publish(); }
+    if (this.state === S.PAUSED) {
+      if (this.fadedOut) { // vừa fade out xong: vào lại từ im lặng cho êm
+        this.fadedOut = false;
+        this.cmd({ type: 'gain', target: this.gainTarget(), from: 0, ms: this.fadeInMs() });
+      }
+      this.cmd({ type: 'resume' }); this.state = S.PLAYING; this.publish();
+    }
   }
 
   bump() { this.queueVersion++; this.persist(); this.publish(); this.prefetchHead(); }
 
   prefetchHead() {
     const next = this.queue[0];
-    if (!next || this.prefetchedId === next.videoId || this.settings.backend === 'IFRAME') return;
+    if (!next || next.local || this.hasOffline(next) || this.prefetchedId === next.videoId || this.settings.backend === 'IFRAME') return;
     this.prefetchedId = next.videoId;
     const id = next.videoId;
     resolver.resolve(id, this.settings.maxHeight).catch(() => { if (this.prefetchedId === id) this.prefetchedId = null; });
@@ -340,12 +475,14 @@ class Controller extends EventEmitter {
 
   async playItem(item, startMs) {
     this.clearTimers();
+    this.fadeReset();
     const token = ++this.playToken;
     this.current = item;
     item.status = 'RESOLVING';
     this.state = S.RESOLVING;
     this.netWait = false;
     this.sources = []; this.srcIdx = 0;
+    this.offlineKey = null;
     if (this.lastItemId !== item.itemId) {
       this.lastItemId = item.itemId; this.reresolved = false; this.stallRetries = 0; this.sameSrcRetry = 0;
     }
@@ -353,6 +490,16 @@ class Controller extends EventEmitter {
     this.pos = startMs || 0; this.dur = (item.durationSec || 0) * 1000;
     this.publish();
 
+    if (item.local) { this.playLocal(item, startMs || 0, token); return; }
+    // Bài đã tải sẵn: phát từ file trong máy (không yt-dlp, không cần mạng). File mất/không đọc được thì phát trực tuyến như thường.
+    const off = this.offlineFile(item);
+    if (off) {
+      const ok = await fs.promises.access(off, fs.constants.R_OK).then(() => true, () => false);
+      if (token !== this.playToken) return;
+      if (ok) { this.startOffline(item, off, startMs || 0); return; }
+      if (this.downloads) { this.downloads.forget(item.videoId); this.noteDownloadsChanged(); }
+      resolver.log('FILE ĐÃ TẢI KHÔNG ĐỌC ĐƯỢC ' + item.videoId + ' -> phát trực tuyến');
+    }
     const useIframe = this.settings.backend === 'IFRAME' || (this.settings.backend === 'AUTO' && this.forceIframeItem === item.itemId);
     if (useIframe) { this.playIframe(item, startMs || 0); return; }
     this.usingIframe = false;
@@ -370,6 +517,52 @@ class Controller extends EventEmitter {
       if (e instanceof resolver.UnavailableError) { this.lastFail = e; this.failCurrent(item, 'UNAVAILABLE'); }
       else { this.lastFail = e; this.failCurrent(item, 'PLAYBACK_FAILED'); }
     }
+  }
+
+  /** File trong máy: không cần yt-dlp, không cần mạng; tiến trình chính đổi nguồn này thành đường dẫn cục bộ (proxy). */
+  async playLocal(item, startMs, token) {
+    this.usingIframe = false;
+    this.cmd({ type: 'stop' });
+    try { await fs.promises.access(item.local, fs.constants.R_OK); }
+    catch (e) {
+      if (token !== this.playToken) return;
+      this.lastFail = { message: 'Không mở được file (đã bị xoá/đổi tên hoặc ổ đĩa đã rút): ' + path.basename(item.local) };
+      this.failCurrent(item, 'UNAVAILABLE');
+      return;
+    }
+    if (token !== this.playToken) return;
+    this.sources = [{ local: item.local, mime: localfiles.mimeOf(item.local), audioOnly: localfiles.kindOf(item.local) === 'audio' }];
+    this.srcIdx = 0;
+    this.startStream(item, startMs);
+  }
+
+  // ---- bài đã tải sẵn ----
+  /** Đường dẫn file đã tải của bài YouTube (null nếu chưa tải, file mất, hoặc file này đã hỏng khi phát). */
+  offlineFile(item) {
+    if (!this.downloads || !item || item.local || item.skipOffline) return null;
+    try { return this.downloads.fileFor(item.videoId) || null; } catch (e) { return null; }
+  }
+  hasOffline(item) { return !!this.offlineFile(item); }
+  /** Bài này đang phát từ file đã tải? */
+  isOffline(item) { return !!item && this.offlineKey === item.itemId; }
+
+  startOffline(item, file, startMs) {
+    if (!this.current || this.current.itemId !== item.itemId) return;
+    this.usingIframe = false;
+    this.cmd({ type: 'stop' });
+    this.offlineKey = item.itemId;
+    this.sources = [{ local: file, mime: localfiles.mimeOf(file), audioOnly: localfiles.kindOf(file) === 'audio' }];
+    this.srcIdx = 0;
+    this.startStream(item, startMs);
+  }
+
+  /** File đã tải hỏng / không phát được / đứng hình: bỏ file này, phát trực tuyến tiếp từ vị trí đang nghe. */
+  fallbackFromOffline(item, why) {
+    const pos = this.pos;
+    item.skipOffline = true; this.offlineKey = null;
+    if (this.downloads) { this.downloads.forget(item.videoId); this.noteDownloadsChanged(); }
+    resolver.log('FILE ĐÃ TẢI LỖI (' + why + ') ' + item.videoId + ' -> phát trực tuyến từ ' + Math.round(pos / 1000) + 's');
+    this.playItem(item, pos > 1500 ? pos : 0);
   }
 
   async resolveWithRetry(item, token) {
@@ -394,10 +587,11 @@ class Controller extends EventEmitter {
     if (!s) { this.failCurrent(item, 'PLAYBACK_FAILED'); return; }
     this.usingIframe = false;
     this.cmd({
-      type: 'load', mode: 'stream', key: item.itemId, videoId: item.videoId, src: s,
-      startMs: startMs || 0, volume: this.volume, paused: this.userPaused
+      type: 'load', mode: 'stream', key: item.itemId, videoId: item.videoId, title: item.title, src: s,
+      startMs: startMs || 0, volume: this.volume, paused: this.userPaused,
+      gain: this.gainTarget(), fadeInMs: startMs > 0 ? 0 : this.fadeInMs()
     });
-    this.armStartTimeout(item, 30000);
+    this.armStartTimeout(item, item.local || this.isOffline(item) ? 15000 : 30000);
   }
 
   playIframe(item, startMs) {
@@ -405,7 +599,8 @@ class Controller extends EventEmitter {
     this.publish();
     this.cmd({
       type: 'load', mode: 'iframe', key: item.itemId, videoId: item.videoId,
-      startMs: startMs || 0, volume: this.volume, paused: this.userPaused
+      startMs: startMs || 0, volume: this.volume, paused: this.userPaused,
+      gain: this.gainTarget(), fadeInMs: startMs > 0 ? 0 : this.fadeInMs()
     });
     this.armStartTimeout(item, 25000);
   }
@@ -458,6 +653,12 @@ class Controller extends EventEmitter {
 
   handleStreamError(item) {
     if (!this.current || this.current.itemId !== item.itemId) return;
+    if (item.local) {
+      this.lastFail = { message: 'File không phát được (định dạng hoặc codec không được hỗ trợ, hoặc file hỏng): ' + path.basename(item.local) };
+      this.failCurrent(item, 'UNAVAILABLE');
+      return;
+    }
+    if (this.isOffline(item)) { this.fallbackFromOffline(item, 'không phát được'); return; }
     const pos = this.pos;
     if ((this.sameSrcRetry || 0) < 2 && this.sources[this.srcIdx]) {
       this.sameSrcRetry = (this.sameSrcRetry || 0) + 1;
@@ -484,7 +685,7 @@ class Controller extends EventEmitter {
     if (!this.current || this.current.itemId !== item.itemId) return;
     this.clearTimers();
     item.status = 'UNAVAILABLE';
-    if (code !== 'UNAVAILABLE' && this.settings.backend === 'AUTO' && !this.usingIframe) {
+    if (!item.local && code !== 'UNAVAILABLE' && this.settings.backend === 'AUTO' && !this.usingIframe) {
       this.streamFailStreak++;
       if (this.streamFailStreak >= 2 && this.forceIframeItem !== item.itemId) {
         this.forceIframeItem = item.itemId;
@@ -518,6 +719,7 @@ class Controller extends EventEmitter {
       if (this.pos !== this.lastPos) { this.lastPos = this.pos; this.lastPosChangeAt = now; }
       else if (now - this.lastPosChangeAt > 15000) {
         this.lastPosChangeAt = now;
+        if (this.isOffline(item)) { this.fallbackFromOffline(item, 'đứng hình'); return; }
         if (this.stallRetries < 2) {
           this.stallRetries++;
           resolver.invalidate(item.videoId);
@@ -527,7 +729,7 @@ class Controller extends EventEmitter {
       }
       if (this.dur > 0 && this.pos * 100 / this.dur >= 70) {
         const next = this.queue[0];
-        if (next && this.prefetchedId !== next.videoId) {
+        if (next && !next.local && !this.hasOffline(next) && this.prefetchedId !== next.videoId) {
           this.prefetchedId = next.videoId;
           resolver.resolve(next.videoId, this.settings.maxHeight).catch(() => {});
         }
@@ -563,13 +765,15 @@ class Controller extends EventEmitter {
       queue: this.queue.map(itemJson),
       nextUp: this.queue[0] ? itemJson(this.queue[0]) : null,
       volume: this.volume, tvSearch: this.searchJson(), karaoke: this.karaoke,
-      favVer: this.favVersion, queueVersion: this.queueVersion,
+      duck: this.duck, fading: this.fading, fadedOut: this.fadedOut,
+      favVer: this.favVersion, dlVer: this.dlVer, queueVersion: this.queueVersion,
       fallbackHint: this.fallbackHint && this.usingIframe, netWait: this.netWait, halted: this.halted,
       error: { seq: this.errorSeq, code: this.errCode, message: this.errMsg, detail: this.errDetail || '' },
       lastChange: { by: this.lastActor, agoMs: Date.now() - this.lastActorAt },
       settings: {
         backend: this.settings.backend, maxHeight: this.settings.maxHeight,
-        tickerMode: this.settings.tickerMode, seedAutoplay: this.settings.seedAutoplay
+        tickerMode: this.settings.tickerMode, seedAutoplay: this.settings.seedAutoplay,
+        duckLevel: this.settings.duckLevel, fadeInSec: this.settings.fadeInSec, fadeOutSec: this.settings.fadeOutSec
       }
     };
   }
@@ -578,8 +782,9 @@ class Controller extends EventEmitter {
     if (!this.settings.restoreQueue) return;
     try {
       const arr = [];
-      if (this.current && this.current.source === 'USER') arr.push(itemJson(this.current));
-      this.queue.forEach(i => arr.push(itemJson(i)));
+      const row = i => ({ ...itemJson(i), localPath: i.local || null });
+      if (this.current && this.current.source === 'USER') arr.push(row(this.current));
+      this.queue.forEach(i => arr.push(row(i)));
       this.store.set('queue', arr);
     } catch (e) { /* bỏ qua */ }
   }
@@ -590,7 +795,8 @@ class Controller extends EventEmitter {
       const arr = this.store.get('queue', []);
       for (const o of arr) {
         if (!o || !ID_RE.test(o.videoId || '')) continue;
-        const it = newItem({ videoId: o.videoId, title: o.title || 'YouTube · ' + o.videoId, channel: o.channel, durationSec: o.durationSec, addedBy: o.addedBy, source: o.source || 'USER' });
+        const lp = typeof o.localPath === 'string' && o.localPath ? o.localPath : null;
+        const it = newItem({ videoId: o.videoId, title: o.title || 'YouTube · ' + o.videoId, channel: o.channel, durationSec: o.durationSec, addedBy: o.addedBy, source: o.source || 'USER', local: lp });
         this.queue.push(it);
       }
     } catch (e) { this.queue = []; }

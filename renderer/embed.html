@@ -32,6 +32,7 @@ function onYouTubeIframeAPIReady() {
 function applyVol() { if (!ready) return; if (muted) yt.mute(); else { yt.unMute(); yt.setVolume(vol); } }
 function load(m) {
   key = m.key;
+  if (m.volume != null) vol = m.volume;
   if (!ready) { pend = m; return; }
   yt.loadVideoById({ videoId: m.videoId, startSeconds: Math.floor((m.startMs || 0) / 1000) });
   applyVol();

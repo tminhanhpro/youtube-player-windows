@@ -18,6 +18,13 @@ window.ICONS = (function () {
     next: w('<path d="M6 6v12l9-6zM16 6h2.5v12H16z"/>'),
     play: w('<path d="M7 5v14l12-7z"/>'),
     pause: w('<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>'),
+    mc: w('<path d="M9 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zM3.5 10a5.5 5.5 0 0 0 11 0h-2a3.5 3.5 0 0 1-7 0zM8 16.5h2V20H8zM18 6h2v7.2l2.1-2.1 1.4 1.4L19 17l-4.5-4.5 1.4-1.4 2.1 2.1z"/>'),
+    fade: w('<path d="M3 4h3v16H3zM8.5 7h3v13h-3zM14 11h3v9h-3zM19.5 15h3v5h-3z"/>'),
+    banner: w('<path d="M3 5h18v3h-2V7h-5v10h2.2v2H7.8v-2H10V7H5v1H3z"/>'),
+    deck: w('<path d="M4 7h12v14H4z"/><path d="M8 3h12v14h-2V5H8z"/>'),
+    speaker: w('<path d="M3 9v6h4l5 4V5L7 9zm13.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/>'),
+    folder: w('<path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8z"/>'),
+    download: w('<path d="M11 3h2v9.2l3.3-3.3 1.4 1.4L12 16l-5.7-5.7 1.4-1.4L11 12.2zM5 18h14v3H5z"/>'),
     fullscreen: w('<path d="M5 5h6v2H7v4H5zM13 5h6v6h-2V7h-4zM5 13h2v4h4v2H5zM17 13h2v6h-6v-2h4z"/>')
   };
 })();

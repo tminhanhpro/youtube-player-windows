@@ -3,7 +3,9 @@ const crypto = require('crypto');
 const http = require('http');
 const https = require('https');
 const dns = require('dns');
+const fs = require('fs');
 const resolver = require('./resolver');
+const { isMedia, mimeOf } = require('./localfiles');
 
 const CHUNK = 4 * 1024 * 1024; // YouTube bóp tốc độ nếu tải một mạch -> tải từng đoạn 4 MB (giống bản Android)
 
@@ -46,6 +48,8 @@ async function request(url, headers, agent, signal, hops, pickIp) {
 class StreamProxy {
   constructor(getBase) {
     this.getBase = getBase;
+    this.files = new Map();   // id -> { path, mime } (file trong máy); chỉ phát những file đã đăng ký
+    this.fileIds = new Map(); // path -> id
     this.entries = new Map(); // id -> { url, size, headers, mime }
     this.byUrl = new Map();   // url -> id
     this.edge = new Map();    // hostname -> { t, ips[], bad: Map(ip -> hết hạn) }
@@ -76,7 +80,7 @@ class StreamProxy {
     let id = this.byUrl.get(src.url);
     if (!id) {
       id = crypto.randomBytes(9).toString('base64url');
-      this.entries.set(id, { url: src.url, size: src.size || 0, headers: src.headers || {}, mime: src.mime || 'video/mp4' });
+      this.entries.set(id, { url: src.url, size: src.size || 0, headers: src.headers || {}, mime: src.mime || 'video/mp4', born: src.t || Date.now() });
       this.byUrl.set(src.url, id);
       if (this.entries.size > 60) {
         const old = this.entries.keys().next().value;
@@ -87,8 +91,24 @@ class StreamProxy {
     return this.getBase() + '/internal/s/' + id;
   }
 
+  /** Đăng ký một file trong máy, trả về URL cục bộ (chỉ localhost truy cập được, id ngẫu nhiên). */
+  localFile(filePath, mime) {
+    let id = this.fileIds.get(filePath);
+    if (!id) {
+      id = crypto.randomBytes(9).toString('base64url');
+      this.files.set(id, { path: filePath, mime: mime || mimeOf(filePath) });
+      this.fileIds.set(filePath, id);
+      if (this.files.size > 300) { const old = this.files.keys().next().value; this.fileIds.delete(this.files.get(old).path); this.files.delete(old); }
+    }
+    return this.getBase() + '/internal/f/' + id;
+  }
+
   /** Biến lệnh 'load' của controller thành lệnh dùng URL cục bộ. */
   rewrite(cmd) {
+    if (cmd && cmd.type === 'load' && cmd.mode === 'stream' && cmd.src && cmd.src.local) {
+      if (!isMedia(cmd.src.local)) return { type: 'stop' };
+      return { ...cmd, src: { height: 0, audioOnly: !!cmd.src.audioOnly, video: { url: this.localFile(cmd.src.local, cmd.src.mime) }, audio: null } };
+    }
     if (cmd && cmd.type === 'load' && cmd.mode === 'stream' && cmd.src) {
       return {
         ...cmd,
@@ -136,7 +156,8 @@ class StreamProxy {
     const tried = [];
     let isHttps = false; try { isHttps = new URL(e.url).protocol === 'https:'; } catch (x) { /* ignore */ }
     let firstHost = ''; try { firstHost = new URL(e.url).hostname; } catch (x) { /* ignore */ }
-    for (let round = 0; round < 10; round++) {
+    const t0 = Date.now();
+    for (let round = 0; round < 40 && Date.now() - t0 < 7000; round++) {
       const modes = this.modesFor(e);
       // Cố định MỘT máy chủ (IP) cho cả vòng này để kết quả 403 quy đúng cho máy chủ đó
       const roundIp = firstHost && !/^\d+\.\d+\.\d+\.\d+$/.test(firstHost) ? await this.pickEdge(firstHost) : null;
@@ -155,13 +176,13 @@ class StreamProxy {
             this.markOk(r.edgeHost, r.edgeIp);
             if (e.mode !== mode || round > 0 || !e.edgeLogged) {
               e.edgeLogged = true;
+              const age = Date.now() - (e.born || t0);
               e.mode = mode;
-              resolver.log('PROXY dùng cách ' + mode + (round ? ' sau ' + round + ' lần mở kết nối mới' : '') + (tried.length ? ' (' + tried.slice(0, 4).join(', ') + (tried.length > 4 ? ', …' : '') + ')' : '') + (r.viaRedirect ? ' qua chuyển hướng ' + r.viaRedirect : '') + ' · máy chủ ' + (r.edgeIp || '?'));
+              resolver.log('PROXY dùng cách ' + mode + (round ? ' sau ' + round + ' lần thử lại (link cấp ' + age + ' ms trước)' : '') + (tried.length ? ' (' + tried.slice(0, 4).join(', ') + (tried.length > 4 ? ', …' : '') + ')' : '') + (r.viaRedirect ? ' qua chuyển hướng ' + r.viaRedirect : '') + ' · máy chủ ' + (r.edgeIp || '?'));
             }
             return { res: r, mode };
           }
-          tried.push(mode + ':' + st + '@' + (r.edgeIp || '?'));
-          this.markBad(r.edgeHost, r.edgeIp);
+          tried.push(mode + ':' + st + '@' + (r.edgeIp || '?')); // 403 không quy cho máy chủ: link mới cấp có thể chưa dùng được
           r.resume();
         } catch (err) {
           if (outer && outer.aborted) throw err;
@@ -169,8 +190,9 @@ class StreamProxy {
           this.markBad(err && err.edgeHost, err && err.edgeIp);
         }
       }
-      this.renewAgent(e); // kết nối mới có thể ra internet bằng IP khác
-      await new Promise(res => setTimeout(res, 150));
+      if (round % 3 === 2) this.renewAgent(e); // cứ 3 vòng mở kết nối (và chọn máy chủ) mới
+      const fresh = Date.now() - (e.born || t0) < 8000; // link mới cấp -> chờ ngắn rồi hỏi lại
+      await new Promise(res => setTimeout(res, fresh ? 250 : 150));
     }
     let ip = '?'; try { ip = new URL(e.url).searchParams.get('ip') || '?'; } catch (x) { /* ignore */ }
     resolver.log('PROXY FAIL bytes=' + start + '-' + end + ' (link cấp cho IP ' + ip + ') ' + tried.slice(0, 6).join(' | ') + (tried.length > 6 ? ' | … (' + tried.length + ' lần)' : ''));
@@ -192,8 +214,33 @@ class StreamProxy {
     throw new Error('Không biết dung lượng luồng (HTTP ' + r.statusCode + ')');
   }
 
-  /** Xử lý GET /internal/s/<id>. Trả true nếu đã xử lý. */
+  /** GET /internal/f/<id>: phát file trong máy, hỗ trợ Range (tua). */
+  routeFile(req, res, url) {
+    const e = this.files.get(url.pathname.slice(12));
+    if (!e) { res.writeHead(404); res.end(); return; }
+    fs.stat(e.path, (err, st) => {
+      if (err || !st.isFile()) { res.writeHead(404); res.end(); return; }
+      const total = st.size;
+      const m = /bytes=(\d*)-(\d*)/.exec(req.headers.range || '');
+      let start = 0, end = total - 1;
+      if (m) {
+        if (m[1] !== '') { start = Number(m[1]); if (m[2] !== '') end = Math.min(Number(m[2]), total - 1); }
+        else if (m[2] !== '') { start = Math.max(0, total - Number(m[2])); }
+        if (start >= total || start > end) { res.writeHead(416, { 'content-range': 'bytes */' + total }); res.end(); return; }
+      }
+      const h = { 'content-type': e.mime, 'accept-ranges': 'bytes', 'cache-control': 'no-store', 'content-length': total ? end - start + 1 : 0 };
+      if (m) { h['content-range'] = 'bytes ' + start + '-' + end + '/' + total; res.writeHead(206, h); } else res.writeHead(200, h);
+      if (!total) { res.end(); return; }
+      const rs = fs.createReadStream(e.path, { start, end });
+      rs.on('error', () => { try { res.destroy(); } catch (x) { /* ignore */ } });
+      res.on('close', () => rs.destroy());
+      rs.pipe(res);
+    });
+  }
+
+  /** Xử lý GET /internal/s/<id> và /internal/f/<id>. Trả true nếu đã xử lý. */
   async route(req, res, url) {
+    if (url.pathname.startsWith('/internal/f/')) { this.routeFile(req, res, url); return true; }
     if (!url.pathname.startsWith('/internal/s/')) return false;
     const e = this.entries.get(url.pathname.slice(12));
     if (!e) { res.writeHead(404); res.end(); return true; }

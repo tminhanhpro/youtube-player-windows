@@ -6,7 +6,7 @@
     en: {
       cats_title: 'TV categories', cats_btn: 'Manage categories (TV)', cat_name_ph: 'Category name (e.g. Bolero)', cat_q_ph: 'Search keyword (optional, default = name)', cat_add: 'Add category', cat_save: 'Save', cat_reset: 'Restore default categories', cat_del_confirm: 'Delete this category?', cat_empty: 'No categories yet.', cat_dup: 'This category already exists', cat_changed: 'The list was changed elsewhere. Reloaded.', cat_saved: 'Saved', cat_deleted: 'Deleted', cat_edit: 'Edit', cat_up: 'Move up', cat_down: 'Move down', cat_search: 'Tap the name to search it',
       search_ph: 'Search song / paste YouTube link', tab_search: 'SEARCH', tab_queue: 'QUEUE',
-      add: 'Add', added: 'Added: ', in_queue: 'In queue', play_next: 'Play next', play_now: 'Play now',
+      add: 'Add', added: 'Added: ', in_queue: 'In queue', dl_have: 'Saved', play_next: 'Play next', play_now: 'Play now',
       prioritize: 'Move to top', remove: 'Remove', move_up: 'Move up', move_down: 'Move down', close: 'Close',
       now_playing: 'Now playing', next: 'Next: ', nothing: 'Nothing is waiting. The TV plays suggested songs.',
       no_results: 'No results', recent: 'Recent searches', loading: 'Loading…',
@@ -20,6 +20,7 @@
       err_generic: 'Something went wrong', dup_confirm: 'Already in queue. Add anyway?', yes: 'Add',
       skip_confirm: 'Someone else just changed the queue. Continue?', vol: 'Volume ',
       mic_hint: 'Tap the microphone key on your keyboard to dictate',
+      l_mc: 'MC talking', l_fade: 'Fade out', mc_on: 'Music turned down — MC, go ahead', mc_off: 'Music back to normal', fade_start: 'Fading out… tap again to cancel', fade_cancel: 'Fade out cancelled', fade_none: 'Nothing is playing',
       mic_denied: 'Microphone access was blocked. Allow the microphone for this page in your browser, then try again.',
       mic_unsupported: 'This browser has no voice search. Use the microphone key on your keyboard.',
       no_speech: 'Did not hear anything. Tap the mic and speak again.',
@@ -34,6 +35,13 @@
       fav_added: 'Saved to favorites', fav_removed: 'Removed from favorites', undo: 'Undo',
       fav_empty: 'No favorite songs yet. Tap “♡ Favorite” on a song to keep it here (saved on the TV, shared by all phones).',
       react_title: 'Reactions', react_hint: 'Tap to send to the TV screen', react_fail: 'Could not send. Check the connection.',
+      sfx_title: 'My sounds (plays on the TV)', sfx_stop: 'Stop all', sfx_missing: 'This sound file is no longer on the computer', sfx_stopped: 'Sounds stopped',
+      l_deck: 'Script', deck_title: 'Scripts (run on the TV)', deck_empty: 'No scripts yet. Create one on the computer (Script button).',
+      deck_cards: '{n} cards', deck_missing_n: '{n} missing', deck_back: '‹ All', deck_next_l: '▶ Next: {n}', deck_done: 'No more cards to run',
+      deck_reset: 'Reset (start over)', deck_reset_confirm: 'Tap again to reset', deck_reset_ok: 'Reset', deck_nocards: 'This script has no cards yet.',
+      deck_busy: 'Too fast, try again', deck_gone: 'This script no longer exists', card_gone: 'This card no longer exists', deck_skipped: 'Skipped {n} empty or missing card(s)',
+      dk_EMPTY: '“{n}” has no content yet', dk_MISSING: '“{n}”: file or sound not found on the computer', dk_DUP: '“{n}” is already in the queue or playing',
+      dk_FAILED: 'Could not run “{n}”', dk_BUSY: 'Too fast, try again', dk_DONE: 'All cards have been run. Tap Reset to start over', dk_NOTHING: 'The remaining cards are empty or missing',
       msg_ph: 'Type a message for the TV screen…', msg_send: 'Send', msg_sent: 'Sent to the TV', msg_wait: 'Please wait a moment, then send again',
       q1: 'Great singing! 👏', q2: 'Happy birthday! 🎂', q3: 'Cheers! 🍻', q4: 'Your turn to sing! 🎤', q5: 'Love this song ❤️',
       q6: 'Absolutely fire! 🔥', q7: 'Golden voice! 🌟', q8: 'Keep singing! 🎶', q9: 'Better than the original! 😍', q10: 'One more song! 🙌', q11: 'Happy New Year! 🧧', q12: 'Congrats on the wedding! 💍', q13: 'Happy housewarming! 🏠', q14: 'Happy birthday to our elder! 🎂', q15: 'Cheers to good health! 🥂', q16: 'Bottoms up! 🍻', q17: 'Perfect score! 💯', q18: 'Goosebumps! 😳', q19: 'Play something upbeat! 💃', q20: 'Next song please! ⏭️', q21: 'Turn it up! 🔊', q22: 'A bit quieter please! 🔉', q23: 'Sing along everyone! 🎤', q24: 'Mic is free, who is next? 🎙️', q25: 'Thank you all! 🙏', q26: 'Love you all! 💖', q27: 'So much fun! 🥳', q28: 'Top of the top! 👑', q29: 'Hello everyone! 👋', q30: 'Have fun everyone! 🌈', q31: 'This song is mine! 😎', q32: 'Sing it again! 🔁', q33: 'Everyone sounds great! 💫', q34: 'Time to eat! 🍽️', q35: 'See you next song! 👋'
@@ -41,7 +49,7 @@
     vi: {
       cats_title: 'Thể loại trên TV', cats_btn: 'Quản lý thể loại (TV)', cat_name_ph: 'Tên thể loại (vd: Bolero)', cat_q_ph: 'Từ khoá tìm (không bắt buộc, mặc định = tên)', cat_add: 'Thêm thể loại', cat_save: 'Lưu', cat_reset: 'Khôi phục thể loại mặc định', cat_del_confirm: 'Xoá thể loại này?', cat_empty: 'Chưa có thể loại nào.', cat_dup: 'Thể loại này đã có', cat_changed: 'Danh sách vừa được đổi ở nơi khác. Đã tải lại.', cat_saved: 'Đã lưu', cat_deleted: 'Đã xoá', cat_edit: 'Sửa', cat_up: 'Lên', cat_down: 'Xuống', cat_search: 'Chạm tên để tìm bài',
       search_ph: 'Tìm bài hát / dán link YouTube', tab_search: 'TÌM KIẾM', tab_queue: 'DANH SÁCH',
-      add: 'Thêm', added: 'Đã thêm: ', in_queue: 'Đã chọn', play_next: 'Phát tiếp theo', play_now: 'Phát ngay',
+      add: 'Thêm', added: 'Đã thêm: ', in_queue: 'Đã chọn', dl_have: 'Đã tải', play_next: 'Phát tiếp theo', play_now: 'Phát ngay',
       prioritize: 'Đưa lên đầu', remove: 'Xóa', move_up: 'Lên', move_down: 'Xuống', close: 'Đóng',
       now_playing: 'Đang phát', next: 'Tiếp theo: ', nothing: 'Chưa có bài nào chờ. TV đang phát bài gợi ý.',
       no_results: 'Không có kết quả', recent: 'Tìm gần đây', loading: 'Đang tải…',
@@ -55,6 +63,7 @@
       err_generic: 'Có lỗi xảy ra', dup_confirm: 'Bài này đã có trong danh sách. Vẫn thêm?', yes: 'Thêm',
       skip_confirm: 'Người khác vừa thay đổi danh sách. Tiếp tục?', vol: 'Âm lượng ',
       mic_hint: 'Bấm vào biểu tượng micro trên bàn phím để nói',
+      l_mc: 'MC nói', l_fade: 'Tắt dần', mc_on: 'Đã hạ nhạc — mời MC nói', mc_off: 'Nhạc trở lại bình thường', fade_start: 'Đang tắt dần nhạc… bấm lại để huỷ', fade_cancel: 'Đã huỷ tắt dần', fade_none: 'Chưa có nhạc đang phát',
       mic_denied: 'Chưa được phép dùng micro. Hãy cho phép micro cho trang này trong trình duyệt rồi thử lại.',
       mic_unsupported: 'Trình duyệt này không hỗ trợ tìm bằng giọng nói. Hãy bấm micro trên bàn phím.',
       no_speech: 'Không nghe thấy gì. Bấm micro và nói lại nhé.',
@@ -69,6 +78,13 @@
       fav_added: 'Đã thêm vào yêu thích', fav_removed: 'Đã bỏ khỏi yêu thích', undo: 'Hoàn tác',
       fav_empty: 'Chưa có bài yêu thích. Bấm “♡ Yêu thích” ở bài hát để lưu lại đây (lưu trên TV, dùng chung cho mọi điện thoại).',
       react_title: 'Bộ sưu tập', react_hint: 'Bấm để gửi hiệu ứng lên màn hình TV', react_fail: 'Gửi không được. Kiểm tra kết nối nhé.',
+      sfx_title: 'Âm thanh của bạn (phát trên TV)', sfx_stop: 'Dừng hết', sfx_missing: 'File âm thanh này không còn trên máy tính', sfx_stopped: 'Đã dừng các hiệu ứng',
+      l_deck: 'Kịch bản', deck_title: 'Kịch bản (chạy trên TV)', deck_empty: 'Chưa có kịch bản nào. Hãy tạo trên máy tính (nút Kịch Bản).',
+      deck_cards: '{n} lá', deck_missing_n: 'thiếu {n}', deck_back: '‹ Tất cả', deck_next_l: '▶ Kế tiếp: {n}', deck_done: 'Hết lá để chạy',
+      deck_reset: 'Đặt lại (chạy từ đầu)', deck_reset_confirm: 'Bấm lần nữa để đặt lại', deck_reset_ok: 'Đã đặt lại', deck_nocards: 'Bộ này chưa có lá bài nào.',
+      deck_busy: 'Bấm quá nhanh, thử lại', deck_gone: 'Bộ bài này không còn', card_gone: 'Lá bài này không còn', deck_skipped: 'Đã bỏ qua {n} lá trống hoặc mất file',
+      dk_EMPTY: 'Ô “{n}” chưa có nội dung', dk_MISSING: '“{n}”: không tìm thấy file hoặc hiệu ứng trên máy tính', dk_DUP: '“{n}” đã có trong hàng đợi hoặc đang phát',
+      dk_FAILED: 'Không chạy được “{n}”', dk_BUSY: 'Bấm quá nhanh, thử lại', dk_DONE: 'Đã chạy hết các lá bài. Bấm “Đặt lại” để chạy lại từ đầu', dk_NOTHING: 'Các lá còn lại đều là ô trống hoặc bị mất file',
       msg_ph: 'Nhắn tin lên màn hình TV…', msg_send: 'Gửi', msg_sent: 'Đã gửi lên TV', msg_wait: 'Chờ một chút rồi gửi tiếp nhé',
       q1: 'Hát hay quá! 👏', q2: 'Chúc mừng sinh nhật! 🎂', q3: 'Cạn ly! 🍻', q4: 'Mời bạn lên hát! 🎤', q5: 'Bài này hay lắm ❤️',
       q6: 'Quá đỉnh! 🔥', q7: 'Giọng ca vàng! 🌟', q8: 'Hát tiếp đi! 🎶', q9: 'Hay hơn ca sĩ luôn! 😍', q10: 'Một bài nữa nha! 🙌', q11: 'Chúc mừng năm mới! 🧧', q12: 'Chúc mừng đám cưới! 💍', q13: 'Chúc mừng tân gia! 🏠', q14: 'Mừng thọ ông bà! 🎂', q15: 'Chúc sức khỏe cả nhà! 🥂', q16: 'Dzô dzô dzô! 🍻', q17: '100% luôn! 💯', q18: 'Nổi da gà luôn! 😳', q19: 'Bật bài vui vui đi! 💃', q20: 'Đổi bài đi nha! ⏭️', q21: 'Tăng âm lượng lên! 🔊', q22: 'Nhỏ tiếng lại chút! 🔉', q23: 'Hát chung nào mọi người! 🎤', q24: 'Mic đây, ai hát tiếp? 🎙️', q25: 'Cảm ơn mọi người! 🙏', q26: 'Yêu cả nhà! 💖', q27: 'Vui quá trời! 🥳', q28: 'Đỉnh của chóp! 👑', q29: 'Xin chào cả nhà! 👋', q30: 'Chúc cả nhà vui vẻ! 🌈', q31: 'Bài này của mình nha! 😎', q32: 'Hát lại lần nữa! 🔁', q33: 'Ai cũng hát hay hết! 💫', q34: 'Mời cả nhà ăn nào! 🍽️', q35: 'Hẹn bài sau nha! 👋'
@@ -103,10 +119,13 @@
     next: svg('<path d="M5 5l10 7-10 7z"/><path d="M19 5v14"/>'),
     replay: svg('<path d="M4.5 12a7.5 7.5 0 1 0 2.3-5.4"/><path d="M4 4v4.8h4.8"/>'),
     mic: svg('<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>'),
+    mcduck: svg('<rect x="4.5" y="3" width="6" height="10" rx="3"/><path d="M2 11a5.5 5.5 0 0 0 11 0M7.5 16.5V20"/><path d="M19 6v9M16 12l3 3 3-3"/>'),
+    fade: svg('<path d="M4.5 4v16M9.5 7v13M14.5 11v9M19.5 15v5" stroke-width="2.6"/>'),
     vdown: svg('<path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16.5 9.5a4 4 0 0 1 0 5"/>'),
     vup: svg('<path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16.5 9.5a4 4 0 0 1 0 5M19 6.5a8 8 0 0 1 0 11"/>'),
     queue: svg('<path d="M4 6h10M4 11h10M4 16h6"/><path d="M18 16V6.5l3-.8"/><circle cx="16" cy="16.5" r="2"/>'),
     react: svg('<circle cx="12" cy="12" r="9"/><path d="M8.3 14c.9 1.7 2.2 2.5 3.7 2.5s2.8-.8 3.7-2.5"/><path d="M9 9.6v.6M15 9.6v.6" stroke-width="2.6"/>'),
+    deck: svg('<rect x="4" y="8" width="12" height="13" rx="2"/><path d="M8 4.5h9A3 3 0 0 1 20 7.5V17"/><path d="M7.5 13.5h5M7.5 17h3"/>'),
     heart: svg('<path d="M12 20.8s-7.6-4.7-9.3-9.5C1.5 7.9 3.6 4.4 7.2 4.4c1.9 0 3.5 1 4.8 2.9 1.3-1.9 2.9-2.9 4.8-2.9 3.6 0 5.7 3.5 4.5 6.9-1.7 4.8-9.3 9.5-9.3 9.5z"/>'),
     link: svg('<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>')
   };
@@ -244,6 +263,7 @@
     var first = (S === null);
     try { syncKaraoke(s.karaoke); } catch (e) {}
     try { syncFavVer(s.favVer); } catch (e) {}
+    try { syncDlVer(s.dlVer); } catch (e) {}
     try { mirrorTvSearch(s.tvSearch); } catch (e) {}
     S = s;
     // counter
@@ -270,6 +290,9 @@
     // transport
     setIcon('b-play', (s.state === 'PLAYING' || s.state === 'RESOLVING') ? 'pause' : 'play');
     setPlayLbl();
+
+    $('b-mc').classList.toggle('on', !!s.duck);
+    $('b-fade').classList.toggle('on', !!s.fading);
 
     // mini now playing
     var np = s.nowPlaying;
@@ -358,15 +381,30 @@
     return box;
   }
 
+  // Bai da tai san ve may (tren TV): giu tap ma, so phien ban trong trang thai doi thi hoi lai danh sach roi ve lai nhan tai cho
+  var dlSet = {}, dlVerSeen = null;
+  function syncDlVer(v) {
+    if (typeof v !== 'number' || v === dlVerSeen) return;
+    dlVerSeen = v;
+    api('GET', '/api/downloaded').then(function (r) {
+      var o = {};
+      ((r && r.ids) || []).forEach(function (id) { o[id] = true; });
+      dlSet = o; refreshDlBadges();
+    }).catch(function () { dlVerSeen = null; });
+  }
+  function refreshDlBadges() {
+    var list = document.querySelectorAll('.thumb[data-vid]');
+    for (var i = 0; i < list.length; i++) list[i].classList.toggle('dl', !!dlSet[list[i].dataset.vid]);
+  }
   function thumbBox(it) {
     var box = el('div', 'thumb');
+    if (it.videoId && !it.local) { box.dataset.vid = it.videoId; box.classList.toggle('dl', !!dlSet[it.videoId]); box.appendChild(el('span', 'dlb', '⬇ ' + t('dl_have'))); }
     var img = document.createElement('img');
     img.loading = 'lazy'; img.decoding = 'async'; img.width = 320; img.height = 180; img.alt = '';
     img.addEventListener('error', function () {
       img.remove(); box.appendChild(el('div', 'noimg', '🎵'));
     });
-    img.src = it.thumbnailUrl;
-    box.appendChild(img);
+    if (it.thumbnailUrl) { img.src = it.thumbnailUrl; box.appendChild(img); } else box.appendChild(el('div', 'noimg', '🎵'));
     if (it.durationSec > 0) box.appendChild(el('span', 'dur', fmt(it.durationSec)));
     return box;
   }
@@ -599,6 +637,167 @@
       b.addEventListener('click', function () { sendReact(r.id, b); });
       g.appendChild(b);
     });
+  }
+  // ------------------------------------------------------------ kịch bản (bộ bài): xem danh sách, bấm lá bài hoặc "kế tiếp" để chạy trên máy tính
+  var DK = { list: [], active: null, cur: null, deck: null, timer: null, resetArm: 0 };
+  function fill(str, n) { return String(str).replace('{n}', n); }
+  function stopDeckTimer() { if (DK.timer) { clearInterval(DK.timer); DK.timer = null; } }
+  function deckText() {
+    $('k-title').textContent = t('deck_title');
+    $('k-back').textContent = t('deck_back');
+    $('k-close').textContent = t('close');
+    $('k-empty').textContent = t('deck_empty');
+    renderDeckList(); renderDeck();
+  }
+  function renderDeckList() {
+    var g = $('k-decks'); g.textContent = '';
+    DK.list.forEach(function (d) {
+      var b = el('button', 'kdeck'); b.type = 'button';
+      b.appendChild(el('span', 're', d.icon));
+      var tx = el('span', 'kt', d.name);
+      tx.appendChild(el('small', null, fill(t('deck_cards'), d.count) + (d.missingCount ? ' · ' + fill(t('deck_missing_n'), d.missingCount) : '')));
+      b.appendChild(tx);
+      b.setAttribute('aria-label', d.name);
+      b.addEventListener('click', function () { openDeck(d.id); });
+      g.appendChild(b);
+    });
+    $('k-empty').hidden = DK.list.length > 0;
+  }
+  function showDeckList() {
+    stopDeckTimer(); DK.cur = null; DK.deck = null;
+    $('k-view').hidden = true; $('k-list').hidden = false;
+    renderDeckList();
+  }
+  function openDecks() {
+    openSheet('sheet-deck'); deckText();
+    $('k-list').hidden = false; $('k-view').hidden = true;
+    api('GET', '/api/decks').then(function (r) {
+      DK.list = (r && r.items) || []; DK.active = (r && r.active) || null;
+      var ids = DK.list.map(function (d) { return d.id; });
+      // mở lại đúng bộ vừa xem; chưa có thì bộ đang dùng trên máy tính; chỉ có một bộ thì mở luôn
+      var pick = ids.indexOf(DK.cur) >= 0 ? DK.cur : (ids.indexOf(DK.active) >= 0 ? DK.active : (ids.length === 1 ? ids[0] : null));
+      if (pick) openDeck(pick); else showDeckList();
+    }).catch(function (e) { toast(e && e.status ? errText(e) : t('react_fail')); showDeckList(); });
+  }
+  function openDeck(id) {
+    DK.cur = id; DK.deck = null;
+    $('k-list').hidden = true; $('k-view').hidden = false;
+    loadDeck(false);
+    if (!DK.timer) {
+      // đồng bộ dấu "đã chạy" khi máy tính hoặc điện thoại khác vừa chạy lá bài
+      DK.timer = setInterval(function () { if (!$('sheet-deck').hidden && DK.cur) loadDeck(true); }, 3000);
+    }
+  }
+  function loadDeck(quiet) {
+    var id = DK.cur;
+    if (!id) return;
+    api('GET', '/api/decks/' + encodeURIComponent(id)).then(function (r) {
+      if (DK.cur !== id) return;
+      DK.deck = r; renderDeck();
+    }).catch(function (e) {
+      if (DK.cur !== id) return;
+      if (e && e.code === 'DECK_MISSING') { toast(t('deck_gone')); reloadDeckList(); return; }
+      if (!quiet) toast(e && e.status ? errText(e) : t('react_fail'));
+    });
+  }
+  // quay về danh sách: tải danh sách mới trước rồi mới chuyển, để không thấy thoáng qua bộ vừa bị xoá
+  function reloadDeckList() {
+    DK.cur = null;   // bỏ qua kết quả đồng bộ đang chờ của bộ cũ
+    api('GET', '/api/decks').then(function (r) {
+      DK.list = (r && r.items) || []; DK.active = (r && r.active) || null; showDeckList();
+    }).catch(function () { showDeckList(); /* giữ danh sách cũ */ });
+  }
+  function renderDeck() {
+    var d = DK.deck;
+    if (!d || !DK.cur || $('k-view').hidden) return;
+    $('k-name').textContent = d.icon + ' ' + d.name;
+    var g = $('k-cards'); g.textContent = '';
+    var nx = null;
+    d.cards.forEach(function (c) {
+      if (c.id === d.next) nx = c;
+      var off = c.missing || c.type === 'empty';
+      var b = el('button', 'rbtn kcard' + (c.played ? ' played' : '') + (c.id === d.next ? ' isnext' : '') + (off ? ' off' : ''));
+      b.type = 'button'; b.disabled = off;
+      b.appendChild(el('span', 're', c.icon));
+      b.appendChild(el('span', 'rl', c.label));
+      b.setAttribute('aria-label', c.label);
+      b.addEventListener('click', function () { runDeckCard(c, b); });
+      g.appendChild(b);
+    });
+    var n = $('k-next'); n.disabled = !nx;
+    n.textContent = nx ? fill(t('deck_next_l'), nx.label) : t('deck_done');
+    var has = d.cards.length > 0;
+    $('k-msg').textContent = has ? '' : t('deck_nocards'); $('k-msg').hidden = has;
+    var rs = $('k-reset'), armed = Date.now() - DK.resetArm < 3000;
+    rs.hidden = !has; rs.classList.toggle('arm', armed);
+    rs.textContent = armed ? t('deck_reset_confirm') : t('deck_reset');
+  }
+  function deckReason(r, label) {
+    if (r.reason === 'FULL') return t('queue_full');
+    var k = 'dk_' + r.reason;
+    return fill(T.en[k] ? t(k) : (r.msg || t('err_generic')), r.label || label || '');
+  }
+  function deckErr(e) {
+    if (e && e.code === 'DECK_MISSING') { toast(t('deck_gone')); reloadDeckList(); return; }
+    if (e && e.code === 'CARD_MISSING') { toast(t('card_gone')); loadDeck(true); return; }
+    toast(e && e.status ? errText(e) : t('react_fail'));
+  }
+  function deckDone(r, label) {
+    if (r.dropped) pill(t('deck_busy'));
+    else if (r.ok) pill('▶ ' + (r.label || label));
+    else toast(deckReason(r, label));
+    if (r.ok && r.skipped && r.skipped.length) toast(fill(t('deck_skipped'), r.skipped.length));
+    loadDeck(true);
+  }
+  function runDeckCard(c, btn) {
+    btn.classList.remove('sent'); void btn.offsetWidth; btn.classList.add('sent');
+    try { if (navigator.vibrate) navigator.vibrate(18); } catch (e) {}
+    api('POST', '/api/decks/' + encodeURIComponent(DK.cur) + '/play', { cardId: c.id }).then(function (r) { deckDone(r, c.label); }).catch(deckErr);
+  }
+  function nextDeckCard() {
+    if (!DK.cur) return;
+    try { if (navigator.vibrate) navigator.vibrate(18); } catch (e) {}
+    api('POST', '/api/decks/' + encodeURIComponent(DK.cur) + '/next', {}).then(function (r) { deckDone(r, ''); }).catch(deckErr);
+  }
+  function resetDeck() {
+    if (!DK.cur) return;
+    // bấm hai lần trong 3 giây mới đặt lại: tránh lỡ tay làm mất dấu "đã chạy" giữa buổi tiệc
+    if (Date.now() - DK.resetArm >= 3000) { DK.resetArm = Date.now(); renderDeck(); setTimeout(renderDeck, 3100); return; }
+    DK.resetArm = 0;
+    api('POST', '/api/decks/' + encodeURIComponent(DK.cur) + '/reset', {}).then(function () { pill('↺ ' + t('deck_reset_ok')); loadDeck(true); }).catch(deckErr);
+  }
+
+  // ------------------------------------------------------------ hiệu ứng âm thanh riêng (file của bạn, cài trên máy tính): bấm là phát trên TV
+  var SFX = [];
+  function loadSfx() {
+    api('GET', '/api/sfx').then(function (r) { SFX = (r && r.items) || []; renderSfx(); }).catch(function () { /* giữ danh sách cũ */ });
+  }
+  function renderSfx() {
+    var g = $('r-sfx'); g.textContent = '';
+    $('r-sfxbox').hidden = !SFX.length;
+    $('sheet-react').classList.toggle('hassfx', SFX.length > 0);
+    $('r-sfx-title').textContent = t('sfx_title');
+    $('r-sfx-stop').textContent = '■ ' + t('sfx_stop');
+    SFX.forEach(function (s) {
+      var b = el('button', 'rbtn sfxbtn' + (s.missing ? ' off' : '')); b.type = 'button'; b.disabled = !!s.missing;
+      b.appendChild(el('span', 're', s.icon));
+      b.appendChild(el('span', 'rl', s.name));
+      b.setAttribute('aria-label', s.name);
+      b.addEventListener('click', function () { sendSfx(s.id, b); });
+      g.appendChild(b);
+    });
+  }
+  function sendSfx(id, btn) {
+    btn.classList.remove('sent'); void btn.offsetWidth; btn.classList.add('sent');
+    try { if (navigator.vibrate) navigator.vibrate(18); } catch (e) {}
+    api('POST', '/api/sfx/play', { id: id }).catch(function (e) {
+      if (e && e.code === 'SFX_MISSING') { toast(t('sfx_missing')); loadSfx(); return; }   // file bị xoá hoặc danh sách đã đổi trên máy tính
+      var now = Date.now();
+      if (now - reactErrAt > 3000) { reactErrAt = now; toast(e && e.status ? errText(e) : t('react_fail')); }
+    });
+  }
+  function stopSfx() {
+    api('POST', '/api/sfx/stop', {}).then(function () { pill('■ ' + t('sfx_stopped')); }).catch(function (e) { toast(e && e.status ? errText(e) : t('react_fail')); });
   }
   var reactErrAt = 0;
   function sendReact(id, btn) {
@@ -889,7 +1088,8 @@
   }
   function openSheet(id) { $('scrim').hidden = false; $(id).hidden = false; }
   function closeAll() {
-    ['drawer', 'sheet-yt', 'sheet-cats', 'sheet-add', 'sheet-menu', 'sheet-react', 'donate-big'].forEach(function (i) { $(i).hidden = true; });
+    ['drawer', 'sheet-yt', 'sheet-cats', 'sheet-add', 'sheet-menu', 'sheet-react', 'sheet-deck', 'donate-big'].forEach(function (i) { $(i).hidden = true; });
+    stopDeckTimer();
     $('scrim').hidden = true;
     try { $('r-msg').blur(); } catch (e) {}
   }
@@ -952,6 +1152,42 @@
       stop(); timer = setInterval(function () { volume(delta); }, 150);
     });
     ['pointerup', 'pointerleave', 'pointercancel'].forEach(function (ev) { btn.addEventListener(ev, stop); });
+  }
+
+  // ------------------------------------------------------------ MC noi (ha nhac) + tat dan
+  // Bam nhanh = bat/tat. Giu = nhac nho khi con giu, tha ra nhac tro lai (co gui tin hieu 'con giu' dinh ky).
+  function wireMc() {
+    var b = $('b-mc'), down = null, beat = null;
+    function post(on, momentary) {
+      return api('POST', '/api/player/duck', { on: on, momentary: !!momentary }).then(function (r) { if (r.state) applyState(r.state); }).catch(function () {});
+    }
+    function release(forced) {
+      clearInterval(beat); beat = null;
+      if (!down) return;
+      var d = down; down = null;
+      if (!d.momentary) return;
+      if (forced || Date.now() - d.t > 350) { post(false, false); pill(t('mc_off')); }
+      else post(true, false);
+    }
+    b.addEventListener('pointerdown', function (e) {
+      e.preventDefault();
+      try { b.setPointerCapture(e.pointerId); } catch (x) {}
+      var wasOn = !!(S && S.duck);
+      down = { t: Date.now(), momentary: !wasOn };
+      post(!wasOn, !wasOn);
+      pill(t(wasOn ? 'mc_off' : 'mc_on'));
+      if (!wasOn) { clearInterval(beat); beat = setInterval(function () { post(true, true); }, 12000); }
+    });
+    b.addEventListener('pointerup', function () { release(false); });
+    b.addEventListener('pointercancel', function () { release(true); });
+    b.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+    document.addEventListener('visibilitychange', function () { if (document.hidden) release(true); });
+  }
+  function fadeClick() {
+    api('POST', '/api/player/fadeout', {}).then(function (r) {
+      if (r.state) applyState(r.state);
+      pill(t(r.fade === 'start' ? 'fade_start' : r.fade === 'cancel' ? 'fade_cancel' : 'fade_none'));
+    }).catch(function (e) { toast(errText(e)); });
   }
 
   // ------------------------------------------------------------ voice search (mic o cuoi o tim kiem)
@@ -1018,6 +1254,7 @@
     $('r-send').textContent = t('msg_send');
     renderQuick();
     renderReactions();
+    renderSfx();
     syncFavs();
     renderFavs();
     $('d-title').textContent = t('menu');
@@ -1034,6 +1271,7 @@
     $('y-mode-l').textContent = t('search_by');
     setLbl('b-next', 'l_next'); setLbl('b-replay', 'l_replay'); setLbl('b-mic', 'l_mic'); setLbl('b-vdown', 'l_vdown');
     setLbl('b-vup', 'l_vup'); setLbl('b-react', 'l_react'); setLbl('b-add', 'l_link');
+    setLbl('b-mc', 'l_mc'); setLbl('b-fade', 'l_fade'); setLbl('b-deck', 'l_deck'); deckText();
     setPlayLbl();
     $('d-theme-l').textContent = t('theme'); renderThemeChips();
     $('d-ui-l').textContent = t('ui_mode'); renderUiChips();
@@ -1143,6 +1381,7 @@
     wireCats();
     setIcon('b-play', 'play'); setIcon('b-next', 'next'); setIcon('b-replay', 'replay'); setIcon('b-mic', 'mic'); setIcon('q-mic', 'mic');
     setIcon('b-vdown', 'vdown'); setIcon('b-vup', 'vup'); setIcon('b-react', 'react'); setIcon('b-add', 'link');
+    setIcon('b-mc', 'mcduck'); setIcon('b-fade', 'fade'); setIcon('b-deck', 'deck');
     $('d-lang').value = lang;
     $('d-dev').value = device;
     $('d-karaoke').checked = karaoke; $('y-karaoke').checked = karaoke;
@@ -1225,9 +1464,17 @@
     $('b-replay').addEventListener('click', function () { command('POST', '/api/player/restart', {}); });
     $('b-mic').addEventListener('click', micClick);
     $('q-mic').addEventListener('click', micClick);
+    wireMc();
+    $('b-fade').addEventListener('click', fadeClick);
     holdRepeat($('b-vdown'), -5);
     holdRepeat($('b-vup'), 5);
-    $('b-react').addEventListener('click', function () { openSheet('sheet-react'); });
+    $('b-react').addEventListener('click', function () { openSheet('sheet-react'); loadSfx(); });
+    $('r-sfx-stop').addEventListener('click', stopSfx);
+    $('b-deck').addEventListener('click', openDecks);
+    $('k-back').addEventListener('click', function () { reloadDeckList(); });
+    $('k-next').addEventListener('click', nextDeckCard);
+    $('k-reset').addEventListener('click', resetDeck);
+    $('k-close').addEventListener('click', closeAll);
     $('r-close').addEventListener('click', closeAll);
     $('r-msgform').addEventListener('submit', function (e) { e.preventDefault(); sendMsg($('r-msg').value); });
     $('b-add').addEventListener('click', function () { $('a-url').value = ''; $('a-name').value = ''; openSheet('sheet-add'); setTimeout(function () { $('a-url').focus(); }, 50); });

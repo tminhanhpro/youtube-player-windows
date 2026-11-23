@@ -9,6 +9,13 @@ bridge.on('player', c => player.command(c));
 const fx = window.createFx($('fx'));
 bridge.on('reaction', id => fx.react(id));
 bridge.on('message', m => fx.message(m.sender, m.text));
+// chữ chào mừng gõ trên máy tính (null = ẩn)
+const welcome = window.createBanner($('fx'));
+bridge.on('banner', b => { if (b) welcome.show(b); else welcome.hide(); });
+// hiệu ứng âm thanh riêng (file của bạn): phát trên màn lớn
+const sfx = window.createSfx({ onChange: n => bridge.send('sfx-playing', { n }) }); // báo để app tự hạ nhạc nền (nếu bật tuỳ chọn)
+bridge.on('sfx', m => sfx.play(m));
+bridge.on('sfx-stop', () => sfx.stopAll());
 
 bridge.on('state', ({ snap }) => {
   const st = snap.state;
@@ -31,7 +38,7 @@ bridge.on('volume', v => {
   try {
     const devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'audiooutput' && d.deviceId !== 'default' && d.deviceId !== 'communications');
     const hd = devs.find(d => /hdmi|display audio|nvidia high definition|amd high definition|intel.*display/i.test(d.label));
-    if (hd) await player.setSink(hd.deviceId);
+    if (hd) { await player.setSink(hd.deviceId); sfx.setSink(hd.deviceId); }
   } catch (e) { /* dùng mặc định */ }
 })();
 

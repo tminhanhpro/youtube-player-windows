@@ -31,6 +31,11 @@
       </div>
       <button id="addCat" class="dashed nav"><span class="ic" data-i="plus"></span>Tạo Thể Loại Mới</button>
       <button id="favBtn" class="favbtn nav"><span class="ic" data-i="heart"></span>Yêu Thích</button>
+      <button id="bnrBtn" class="favbtn bnrbtn nav" title="Gõ chữ chào mừng hiện lên màn hình lớn (phím W: hiện/ẩn nhanh)"><span class="ic" data-i="banner"></span><span id="bnrLbl">Chữ Chào Mừng</span></button>
+      <button id="libBtn" class="favbtn libbtn nav" title="Phát nhạc và video có sẵn trong máy (không cần mạng). Có thể kéo thả file vào cửa sổ"><span class="ic" data-i="folder"></span>Nhạc Trong Máy</button>
+      <button id="sfxBtn" class="favbtn sfxbtn nav" title="Thêm file vỗ tay, reo hò, lời mời... làm nút hiệu ứng: đổi tên, biểu tượng, âm lượng, sắp xếp"><span class="ic" data-i="speaker"></span>Hiệu Ứng Riêng</button>
+      <button id="deckBtn" class="favbtn deckbtn nav" title="Kịch bản cho từng buổi tiệc: mỗi bộ bài là một buổi, mỗi lá bài là một việc cần làm (đón khách, cắt bánh...)"><span class="ic" data-i="deck"></span>Kịch Bản</button>
+      <button id="dlBtn" class="favbtn dlbtn nav" title="Tải sẵn bài YouTube về máy để phát không cần mạng: chọn Yêu thích, hàng đợi hoặc cả một bộ bài"><span class="ic" data-i="download"></span>Tải Sẵn Về Máy</button>
       <div class="lbl">DANH MỤC ÂM NHẠC</div>
       <div id="cats" class="scroll"></div>
       <div class="foot">
@@ -74,6 +79,10 @@
           <button id="b-next" class="cb nav"><span class="ic" data-i="next"></span><em>Bài tiếp</em></button>
           <button id="b-fwd" class="cb nav"><span class="ic" data-i="ff"></span><em>Tua 10s</em></button>
         </div>
+        <div class="ctl mcrow">
+          <button id="b-mc" class="cb sm nav" title="Giữ phím M: nhạc nhỏ lại khi MC nói, thả ra nhạc trở lại. Bấm nhanh: bật/tắt"><span class="ic" data-i="mc"></span><em id="mcLbl">MC nói · hạ nhạc (M)</em></button>
+          <button id="b-fade" class="cb sm nav" title="Nhạc nhỏ dần rồi dừng (phím O). Bấm Phát để vào lại từ từ"><span class="ic" data-i="fade"></span><em id="fadeLbl">Fade out (O)</em></button>
+        </div>
       </div>
       <div class="card queue">
         <div class="qh"><b>HÀNG ĐỢI TIẾP THEO</b><span id="qcount" class="pill">0 bài</span></div>
@@ -85,12 +94,15 @@
 </div>
 <div id="fxl" class="fxl"></div>
 <div id="volbox" class="volbox" hidden><div id="voltext"></div><div class="vbar"><i id="volfill"></i></div></div>
+<div id="dropHint" class="drophint" hidden>Thả file nhạc / video hoặc thư mục vào đây</div>
 <div id="toast" class="toast" hidden></div>
 <div id="modal" class="modal" hidden></div>
 <script src="icons.js"></script>
 <script src="player.js"></script>
 <script src="reactions.js"></script>
 <script src="messages.js"></script>
+<script src="banner.js"></script>
+<script src="sfx.js"></script>
 <script src="dashboard.js"></script>
 </body>
 </html>

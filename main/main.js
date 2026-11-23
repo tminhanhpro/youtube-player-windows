@@ -1,6 +1,7 @@
 'use strict';
-const { app, BrowserWindow, ipcMain, Menu, shell, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, shell, screen, dialog } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const QRCode = require('qrcode');
 
 const { Store, Settings } = require('./store');
@@ -12,14 +13,56 @@ const searchSvc = require('./search');
 const resolver = require('./resolver');
 const { StreamProxy } = require('./proxy');
 const { TvManager } = require('./tv');
+const { Banners, COLORS: BANNER_COLORS } = require('./banner');
+const { Soundboard } = require('./sfx');
+const { Decks } = require('./decks');
+const { runAndMark, runNext, queueDeck, makeEnv } = require('./deckrun');
+const { LocalLibrary, MEDIA, isMedia } = require('./localfiles');
+const { DownloadService } = require('./dlservice');
 
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 try { require('dns').setDefaultResultOrder('ipv4first'); } catch (e) { /* ignore */ } // link googlevideo gắn với IP lúc lấy link (yt-dlp -4) -> proxy cũng dùng IPv4
 
 if (!app.requestSingleInstanceLock()) { app.quit(); }
 
-let store, settings, ctl, server, proxy, tv, win = null;
+let store, settings, ctl, server, proxy, tv, banners, library, soundboard, decks, dl, win = null;
 let lastQrUrl = null, qrData = null;
+
+/** Đẩy danh sách hiệu ứng mới tới mọi cửa sổ (giao diện quản lý tự cập nhật). */
+function sfxPush() { try { broadcast('sfx-list', soundboard.list()); } catch (e) { /* bỏ qua */ } }
+const sfxLast = new Map(); // chống bấm dội: cùng một nút trong 150ms chỉ tính một lần
+function playSfx(id) {
+  const now = Date.now();
+  if (now - (sfxLast.get(id) || 0) < 150) return false;
+  sfxLast.set(id, now);
+  const msg = soundboard.playPayload(id, f => proxy.localFile(f));
+  if (!msg) return false;
+  broadcast('sfx', msg);
+  return true;
+}
+function deckEnv() { return makeEnv({ ctl, soundboard, banners, checkedLocal, playSfx }); }
+function sfxChanged(res) { if (res && res.added && res.added.length) sfxPush(); return res; }
+/** Đẩy danh sách bộ bài mới tới mọi cửa sổ (cửa sổ Kịch Bản tự cập nhật). */
+function decksPush() { try { broadcast('decks-list', decks.list()); } catch (e) { /* bỏ qua */ } }
+/** Đẩy trạng thái chế độ dùng (bộ đang dùng + lá đã chạy) tới mọi cửa sổ. */
+function livePush() { try { broadcast('decks-live', decks.getLive()); } catch (e) { /* bỏ qua */ } }
+function decksChanged(res) { if (res && (res.deck || res.card)) decksPush(); return res; }
+
+/** Chỉ nhận đường dẫn tuyệt đối, đúng định dạng nhạc/video, file có thật. */
+function checkedLocal(p) {
+  if (typeof p !== 'string' || !path.isAbsolute(p) || !isMedia(p)) return null;
+  try { return fs.statSync(p).isFile() ? p : null; } catch (e) { return null; }
+}
+function enqueueLocal(paths, priority) {
+  const res = { played: 0, added: 0, dup: 0, full: 0, bad: 0 };
+  for (const p of Array.isArray(paths) ? paths.slice(0, 200) : []) {
+    const f = checkedLocal(p);
+    if (!f) { res.bad++; continue; }
+    const c = ctl.addLocalFromTv(f, !!priority);
+    if (c === 0) res.played++; else if (c === 1) res.added++; else if (c === 2) res.dup++; else res.full++;
+  }
+  return res;
+}
 
 function windows() { return BrowserWindow.getAllWindows().filter(w => !w.isDestroyed()); }
 function broadcast(channel, data) { for (const w of windows()) w.webContents.send(channel, data); }
@@ -75,7 +118,8 @@ function searchPayload(s) {
 function saveFavs(list) { Favs.save(store, list); ctl.bumpFavVersion(); ctl.emit('favs'); }
 
 /** Các lệnh cửa sổ được phép gọi. */
-const SETTING_KEYS = { backend: ['AUTO', 'STREAM', 'IFRAME'], seedAutoplay: 'bool', gridCols: [1, 2, 3], fullscreenSec: 'int', qrHidden: 'bool', tvOutput: ['AUTO', 'OFF'] };
+const SETTING_KEYS = { backend: ['AUTO', 'STREAM', 'IFRAME'], seedAutoplay: 'bool', gridCols: [1, 2, 3], fullscreenSec: 'int', qrHidden: 'bool', tvOutput: ['AUTO', 'OFF'],
+  sfxDuck: 'bool', duckLevel: [10, 20, 30, 40, 50], fadeInSec: [0, 1, 2, 3, 5], fadeOutSec: [2, 3, 5, 8, 10] };
 const maskIp = t => String(t).replace(/(\bip=|cho IP )(\d{1,3})\.(\d{1,3})\.\d{1,3}\.\d{1,3}/g, '$1$2.$3.x.x');
 function buildReport() {
   const os = require('os');
@@ -166,12 +210,110 @@ const methods = {
   remove: id => ctl.remove(id),
   prioritize: id => ctl.prioritize(id),
   setVolume: v => ctl.setVolumeAbs(v),
+  setDuck: (on, momentary) => ctl.setDuck(on, !!momentary),
+  fadeOut: () => ctl.fadeOut(),
   changeVolume: d => ctl.changeVolume(d),
   setKaraoke: on => ctl.setKaraoke(on),
+  // nhạc / video có sẵn trong máy (không cần mạng)
+  localList: async () => ({ folders: library.folders, items: await library.list() }),
+  localPickFiles: async () => {
+    const r = await dialog.showOpenDialog(win, {
+      title: 'Chọn nhạc / video trong máy', properties: ['openFile', 'multiSelections'],
+      filters: [{ name: 'Nhạc và video', extensions: Object.keys(MEDIA) }, { name: 'Tất cả file', extensions: ['*'] }]
+    });
+    return r.canceled ? 0 : library.addFiles(r.filePaths);
+  },
+  localPickFolder: async () => {
+    const r = await dialog.showOpenDialog(win, { title: 'Chọn thư mục nhạc / video', properties: ['openDirectory'] });
+    return !r.canceled && r.filePaths[0] ? library.addFolder(r.filePaths[0]) : false;
+  },
+  localRemove: p => library.remove(String(p)),
+  localAdd: (paths, priority) => enqueueLocal(paths, priority),
+  localPlayNow: p => { const f = checkedLocal(p); return f ? ctl.playLocalNow(f) : 3; },
+  /** Kéo thả: nhớ vào thư viện rồi cho vào hàng đợi (file đầu phát ngay nếu đang rảnh). */
+  localDrop: async paths => {
+    const r = await library.resolveDropped(Array.isArray(paths) ? paths.slice(0, 500) : []);
+    const q = enqueueLocal(r.files.slice(0, 200), false);
+    return { ...q, found: r.files.length, folders: r.folders, singles: r.singles };
+  },
+  // tải sẵn bài YouTube về máy (hộp thoại "Tải Sẵn Về Máy"). Tiến độ đẩy qua kênh 'dl-update' / 'dl-removed' / 'dl-library'.
+  dlState: () => dl.state(),
+  dlIds: () => dl.library.ids(),
+  dlStart: scope => dl.start(scope && typeof scope === 'object' ? scope : {}),
+  dlCancel: id => dl.cancel(String(id)),
+  dlCancelAll: () => dl.cancelAll(),
+  dlClear: id => dl.clear(String(id)),
+  dlClearFinished: () => dl.clearFinished(),
+  dlSetMode: m => dl.setMode(m),
+  dlRescan: () => dl.rescan(),
+  dlPickDir: async () => {
+    const r = await dialog.showOpenDialog(win, { title: 'Chọn thư mục lưu bài đã tải', defaultPath: dl.dir(), properties: ['openDirectory', 'createDirectory'] });
+    return !r.canceled && r.filePaths[0] ? dl.setDir(r.filePaths[0]) : false;
+  },
+  dlResetDir: () => dl.resetDir(),
+  dlOpenFolder: async () => {
+    const d = dl.dir();
+    try { require('fs').mkdirSync(d, { recursive: true }); } catch (e) { /* ignore */ }
+    return (await shell.openPath(d)) === '';   // openPath trả chuỗi rỗng nếu thành công
+  },
+  // bảng hiệu ứng âm thanh riêng (file mp3 của bạn). Mọi thay đổi đều đẩy danh sách mới tới các cửa sổ qua kênh 'sfx-list'.
+  sfxList: () => soundboard.list(),
+  sfxPickFiles: async () => {
+    const r = await dialog.showOpenDialog(win, {
+      title: 'Chọn file âm thanh làm hiệu ứng', properties: ['openFile', 'multiSelections'],
+      filters: [{ name: 'Âm thanh', extensions: Object.keys(MEDIA).filter(e => MEDIA[e][0] === 'audio') }]
+    });
+    return r.canceled ? { added: [], skipped: 0, full: false } : sfxChanged(soundboard.addFiles(r.filePaths));
+  },
+  sfxAdd: paths => sfxChanged(soundboard.addFiles(Array.isArray(paths) ? paths.slice(0, 100) : [])),
+  sfxPlay: id => playSfx(id),
+  // nghe thử: trả gói phát về cho cửa sổ quản lý tự phát trên máy tính này (không gửi ra TV, không bị chống bấm dội)
+  sfxPreview: id => soundboard.playPayload(id, f => proxy.localFile(f)),
+  sfxStopAll: () => { ctl.sfxStop(); return true; },
+  sfxUpdate: (id, patch) => { const r = soundboard.update(id, patch); if (r) sfxPush(); return r; },
+  sfxRemove: id => { const r = soundboard.remove(id); if (r) sfxPush(); return r; },
+  sfxMove: (id, to) => { const r = soundboard.move(id, to); if (r) sfxPush(); return r; },
+  // kịch bản (bộ bài): đọc danh sách và chạy lá bài / nạp cả bộ vào hàng đợi
+  decksList: () => decks.list(),
+  deckRunCard: (deckId, cardId) => { const r = runAndMark(decks, deckId, cardId, deckEnv()); if (r.marked) livePush(); return r; },
+  // chế độ dùng khi diễn ra buổi tiệc: bộ đang dùng, lá đã chạy, chạy lá kế tiếp (Space / Enter), đặt lại
+  deckLive: () => decks.getLive(),
+  deckSetActive: id => { const ok = decks.setActive(id); if (ok) livePush(); return ok; },
+  deckRunNext: deckId => { const r = runNext(decks, deckId, deckEnv()); if (r.marked) livePush(); return r; },
+  deckResetPlayed: deckId => { const ok = decks.resetPlayed(deckId); if (ok) livePush(); return ok; },
+  deckQueueAll: deckId => queueDeck(decks.get(String(deckId)), deckEnv()),
+  // kịch bản: quản lý bộ bài và lá bài (mọi thay đổi đều đẩy danh sách mới qua kênh 'decks-list')
+  decksTemplates: () => Decks.templates(),
+  deckCreate: (name, icon) => decksChanged(decks.create(name, icon)),
+  deckFromTemplate: (key, name) => decksChanged(decks.createFromTemplate(String(key), name)),
+  deckDuplicate: id => decksChanged(decks.duplicate(id)),
+  deckUpdate: (id, patch) => { const r = decks.updateDeck(id, patch); if (r) decksPush(); return r; },
+  deckRemove: id => { const r = decks.removeDeck(id); if (r) { decksPush(); livePush(); } return r; },
+  deckMove: (id, to) => { const r = decks.moveDeck(id, to); if (r) decksPush(); return r; },
+  cardAdd: (deckId, src, index) => decksChanged(decks.addCard(deckId, src, index)),
+  deckAddCards: (deckId, srcs) => { const r = decks.addCards(deckId, Array.isArray(srcs) ? srcs.slice(0, 200) : []); if (r.added.length) decksPush(); return r; },
+  cardAssign: (deckId, cardId, src) => { const r = decks.assignCard(deckId, cardId, src); if (r) decksPush(); return r; },
+  // lưu hàng đợi hiện tại (cả bài đang phát nếu do người dùng thêm) thành bộ bài mới
+  deckFromQueue: name => {
+    const items = [];
+    if (ctl.current && ctl.current.source === 'USER') items.push(ctl.current);
+    for (const i of ctl.queue) items.push(i);
+    return decksChanged(decks.createFromQueue(name, items.map(i => ({ videoId: i.videoId, title: i.title, channel: i.channel, durationSec: i.durationSec, local: i.local }))));
+  },
+  cardUpdate: (deckId, cardId, patch) => { const r = decks.updateCard(deckId, cardId, patch); if (r) decksPush(); return r; },
+  cardRemove: (deckId, cardId) => { const r = decks.removeCard(deckId, cardId); if (r) { decksPush(); livePush(); } return r; },
+  cardMove: (deckId, cardId, to) => { const r = decks.moveCard(deckId, cardId, to); if (r) decksPush(); return r; },
+  // chữ chào mừng (gõ trên máy tính, hiện trên màn hình lớn)
+  bannerInit: () => ({ list: banners.list(), cur: banners.current(), colors: BANNER_COLORS }),
+  bannerSave: list => banners.saveList(list),
+  bannerShow: b => banners.show(b),
+  bannerHide: () => banners.hide(),
   getSettings: () => ({
     backend: settings.backend, maxHeight: settings.maxHeight, seedAutoplay: settings.seedAutoplay,
     gridCols: settings.gridCols, fullscreenSec: settings.fullscreenSec, qrHidden: settings.qrHidden,
-    tickerMode: settings.tickerMode, tvOutput: settings.tvOutput, tvActive: !!(tv && tv.active())
+    tickerMode: settings.tickerMode, tvOutput: settings.tvOutput, tvActive: !!(tv && tv.active()),
+    duckLevel: settings.duckLevel, fadeInSec: settings.fadeInSec, fadeOutSec: settings.fadeOutSec, sfxDuck: settings.sfxDuck,
+    dlDir: dl ? dl.dir() : '', dlMode: settings.dlMode
   }),
   setSetting: (k, v) => {
     const rule = SETTING_KEYS[k];
@@ -180,6 +322,8 @@ const methods = {
     else if (rule === 'int') settings[k] = Number(v) | 0;
     else if (rule.includes(v)) settings[k] = v;
     if (k === 'tvOutput') tv.sync();
+    if (k === 'duckLevel') ctl.refreshGain();
+    if (k === 'sfxDuck' && !settings.sfxDuck) ctl.setSfxDuck(false); // tắt tuỳ chọn khi đang hạ: trả nhạc ngay
     pushState();
   },
   setMaxHeight: h => { ctl.setMaxHeight(Number(h) || 720); pushState(); },
@@ -273,9 +417,31 @@ app.whenReady().then(async () => {
   resolver.log('START v' + app.getVersion() + ' electron ' + process.versions.electron + ' ' + process.platform);
   settings = new Settings(store);
   ctl = new Controller(settings, store, path.join(__dirname, 'seed.json'));
+  banners = new Banners(store, b => broadcast('banner', b));
+  library = new LocalLibrary(store);
+  soundboard = new Soundboard(store);
+  decks = new Decks(store, { sfxHas: id => !!soundboard.get(id) });
+  dl = new DownloadService({
+    settings, musicDir: app.getPath('music'),
+    getFavs: () => Favs.load(store), getDecks: () => decks.list(),
+    getQueueItems: () => [ctl.current, ...ctl.queue].filter(Boolean).map(i => ({ videoId: i.videoId, title: i.title, local: i.local }))
+  });
+  ctl.setDownloads(dl.library);
+  try { await dl.library.scan(); } catch (e) { resolver.log('QUÉT THƯ MỤC TẢI LỖI ' + (e && e.message)); }   // quét trước khi phát để bài đã tải dùng được ngay
+  dl.on('update', j => broadcast('dl-update', j));
+  dl.on('removed', id => broadcast('dl-removed', id));
+  dl.on('library', info => { ctl.noteDownloadsChanged(); broadcast('dl-library', info); pushState(); });
   proxy = new StreamProxy(() => 'http://127.0.0.1:' + server.port);
   server = new KaraokeServer({
     ctl, settings, store,
+    // điện thoại remote: xem và chạy bộ bài; dùng lại đúng các hàm của cửa sổ máy tính nên dấu "đã chạy" cũng hiện bên đó ngay
+    decksApi: {
+      list: () => decks.list(), get: id => decks.get(id), live: () => decks.getLive(), liveOf: id => decks.liveOf(id),
+      play: (deckId, cardId) => methods.deckRunCard(deckId, cardId),
+      next: deckId => methods.deckRunNext(deckId),
+      reset: deckId => methods.deckResetPlayed(deckId)
+    },
+    downloadedIds: () => dl.library.ids(),
     extraRoutes: (req, res, url) => proxy.route(req, res, url),
     webDir: path.join(__dirname, '..', 'web'),
     uiDir: path.join(__dirname, '..', 'renderer')
@@ -293,6 +459,8 @@ app.whenReady().then(async () => {
   ctl.on('cats', () => broadcast('cats', Cats.load(store)));
   ctl.on('favs', () => { broadcast('favs', Favs.load(store)); pushState(); });
   ctl.on('reaction', id => broadcast('reaction', id));
+  ctl.on('sfx', id => playSfx(id));
+  ctl.on('sfx-stop', () => broadcast('sfx-stop'));
   ctl.on('message', m => broadcast('message', m));
   ctl.on('volume', v => broadcast('volume', v));
   tv = new TvManager({
@@ -300,10 +468,15 @@ app.whenReady().then(async () => {
   });
   ctl.on('player', c => { const r = proxy.rewrite(c); tv.onCtlPlayer(r); tv.broadcastPlayer(r); });
   // Cửa sổ giữ trình phát báo trạng thái về bộ não
+  // cửa sổ đang phát hiệu ứng báo số hiệu ứng còn chạy: >0 thì hạ nhạc (nếu bật tuỳ chọn), về 0 thì trả nhạc
+  ipcMain.on('sfx-playing', (_e, d) => { if (settings.sfxDuck) ctl.setSfxDuck(Number(d && d.n) > 0); });
   ipcMain.on('player-event', (e, d) => { if (d && d.kind) tv.onPlayerEvent(e.sender.id, d); });
   ipcMain.on('player-ready', e => {
     if (win && e.sender.id === win.webContents.id) ctl.attachPlayer(true);
     tv.onPlayerReady(e.sender.id);
+    // cửa sổ vừa mở (vd. mới cắm HDMI) phải hiện đúng chữ chào mừng đang bật
+    const b = banners.current();
+    if (b) { try { e.sender.send('banner', b); } catch (x) { /* ignore */ } }
   });
   // Màn hình thay đổi (cắm/rút HDMI, đổi độ phân giải...) -> đồng bộ cửa sổ TV (đợi 0,8 giây cho Windows ổn định)
   let syncT = null;
@@ -323,4 +496,4 @@ app.whenReady().then(async () => {
 });
 
 app.on('window-all-closed', () => { app.quit(); });
-app.on('before-quit', () => { try { ctl.stop(); store.flush(); server.close(); } catch (e) { /* ignore */ } });
+app.on('before-quit', () => { try { if (dl) dl.stop(); ctl.stop(); store.flush(); server.close(); } catch (e) { /* ignore */ } });

@@ -136,6 +136,8 @@ async function resolve(id, maxH) {
     try {
       const info = await runYtDlp('https://www.youtube.com/watch?v=' + id, v);
       const r = build(info, maxH);
+      const t = Date.now(); // thời điểm YouTube cấp link (link mới cấp có thể bị 403 trong khoảng 1 giây đầu)
+      for (const sc of r.sources) { if (sc.video) sc.video.t = t; if (sc.audio) sc.audio.t = t; }
       cache.set(k, r);
       let cl = '?', ip = '?'; try { const q = new URL(r.sources[0].video.url).searchParams; cl = q.get('c') || '?'; ip = q.get('ip') || '?'; } catch (x) { /* ignore */ }
       log('OK ' + id + ' ' + (Date.now() - t0) + 'ms client=' + cl + ' ip=' + ip + ' biến thể=' + v + ' nguồn=' + r.sources.length);
@@ -164,4 +166,4 @@ async function channelUrl(id) {
   } catch (e) { return null; }
 }
 
-module.exports = { nextVariant, markGood, setLogDir, logPath, readLog, clearLog, log, resolve, cached, invalidate, meta, channelUrl, UnavailableError, binDir, exe };
+module.exports = { VARIANTS, nextVariant, markGood, setLogDir, logPath, readLog, clearLog, log, resolve, cached, invalidate, meta, channelUrl, UnavailableError, binDir, exe };

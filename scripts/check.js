@@ -155,8 +155,69 @@ function testTv() {
   console.log('Xuất HDMI: logic màn hình ngoài đều đạt');
 }
 
+// --- MC nói (hạ nhạc) + fade vào/ra: máy trạng thái với trình phát giả ---
+async function testMcFade() {
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const store = new Store(fs.mkdtempSync(path.join(os.tmpdir(), 'ytp3-'))), settings = new Settings(store);
+  settings.seedAutoplay = false; settings.fadeOutSec = 2; settings.fadeInSec = 2; settings.duckLevel = 20;
+  const ctl = new Controller(settings, store, path.join(__dirname, '..', 'main', 'seed.json'));
+  resolver.resolve = async (vid) => ({ sources: [{ video: { url: 'http://x/' + vid }, audio: null, height: 720 }], expiresAt: Date.now() + 1e6, title: 'T', channel: 'C', durationSec: 100 });
+  const cmds = []; ctl.on('player', c => cmds.push(c));
+  const gains = () => cmds.filter(c => c.type === 'gain');
+  const last = type => cmds.filter(c => c.type === type).pop();
+  ctl.attachPlayer(true);
+  ctl.add('aaaaaaaaaaa', 'A', '', 100, 'u', 'end', false);
+  ctl.add('bbbbbbbbbbb', 'B', '', 100, 'u', 'end', false);
+  await sleep(50);
+  let load = last('load');
+  assert.equal(load.gain, 1); assert.equal(load.fadeInMs, 2000, 'bài mới vào dần 2 giây');
+  ctl.playerEvent('started', load.key); assert.equal(ctl.state, 'PLAYING');
+  assert.equal(ctl.snapshot().settings.duckLevel, 20); assert.equal(ctl.snapshot().duck, false);
+
+  // --- MC nói: hạ nhạc còn 20% nhanh, thả ra thì trở lại chậm hơn
+  ctl.setDuck(true); let g = gains().pop();
+  assert.equal(g.target, 0.2); assert.equal(g.ms, 300); assert.equal(ctl.snapshot().duck, true);
+  const n = gains().length; ctl.setDuck(true); assert.equal(gains().length, n, 'bật lại khi đã bật: không gửi lệnh thừa');
+  ctl.setDuck(false); g = gains().pop(); assert.equal(g.target, 1); assert.equal(g.ms, 800); assert.equal(ctl.snapshot().duck, false);
+  // giữ nút (momentary) có hẹn giờ an toàn; chốt (không momentary) thì bỏ hẹn giờ
+  ctl.setDuck(true, true); assert.ok(ctl.duckWd, 'có hẹn giờ an toàn'); ctl.setDuck(true, false); assert.equal(ctl.duckWd, null);
+  // đang MC nói mà qua bài: bài mới vào ở mức đã hạ, không bật to lên
+  ctl.skip(); await sleep(50); load = last('load'); assert.equal(load.videoId, 'bbbbbbbbbbb');
+  assert.equal(load.gain, 0.2, 'bài mới vẫn ở mức đã hạ'); ctl.playerEvent('started', load.key);
+  ctl.setDuck(false);
+  // đổi mức hạ trong cài đặt khi đang hạ
+  ctl.setDuck(true); settings.duckLevel = 30; ctl.refreshGain(); assert.equal(gains().pop().target, 0.3);
+  ctl.setDuck(false); settings.duckLevel = 20;
+
+  // --- Fade out
+  assert.equal(ctl.fadeOut(), 'start'); g = gains().pop(); assert.equal(g.target, 0); assert.equal(g.ms, 2000); assert.equal(ctl.fading, true);
+  const m = gains().length; ctl.setDuck(true); assert.equal(gains().length, m, 'đang fade out thì MC không chen vào');
+  ctl.setDuck(false);
+  assert.equal(ctl.fadeOut(), 'cancel'); g = gains().pop(); assert.equal(g.target, 1); assert.equal(ctl.fading, false); assert.equal(ctl.state, 'PLAYING');
+  assert.equal(ctl.fadeOut(), 'start'); ctl.pause();                       // tự bấm Tạm dừng giữa chừng -> huỷ fade
+  assert.equal(ctl.fading, false); assert.equal(ctl.state, 'PAUSED'); assert.equal(gains().pop().target, 1);
+  ctl.resume(); assert.equal(ctl.state, 'PLAYING');
+  assert.equal(ctl.fadeOut(), 'start'); await sleep(2300);
+  assert.equal(ctl.state, 'PAUSED', 'fade xong thì dừng'); assert.equal(ctl.fadedOut, true); assert.equal(ctl.currentGain(), 0);
+  assert.equal(ctl.fadeOut(), 'none', 'đã dừng thì bấm fade out không làm gì');
+  ctl.resume();                                                              // Phát lại: vào dần từ im lặng
+  const gi = cmds.lastIndexOf(gains().pop()), ri = cmds.lastIndexOf(last('resume'));
+  assert.ok(gi < ri, 'lệnh gain phải đi trước lệnh resume');
+  g = cmds[gi]; assert.equal(g.from, 0); assert.equal(g.target, 1); assert.equal(g.ms, 2000);
+  assert.equal(ctl.state, 'PLAYING'); assert.equal(ctl.fadedOut, false);
+  // fade out xong rồi bấm Qua bài: bài mới không bị kẹt ở mức 0
+  assert.equal(ctl.fadeOut(), 'start'); await sleep(2300); ctl.add('ccccccccccc', 'C', '', 100, 'u', 'end', false); ctl.skip(); await sleep(50);
+  load = last('load'); assert.equal(load.gain, 1); assert.equal(ctl.fadedOut, false);
+  // cửa sổ TV mở muộn nhận đúng mức gain hiện tại
+  ctl.setDuck(true); assert.equal(ctl.currentGain(), 0.2); ctl.setDuck(false); assert.equal(ctl.currentGain(), 1);
+  // không có nhạc: fade out báo 'none'
+  ctl.stop();
+  console.log('MC nói + fade vào/ra: máy trạng thái đều đạt');
+}
+
 (async () => {
   testTv();
+  await testMcFade();
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ytp-'));
   const store = new Store(dir), settings = new Settings(store);
   settings.seedAutoplay = false;
@@ -186,6 +247,12 @@ function testTv() {
   r = await j('POST', '/api/favs/add', { videoId: 'dQw4w9WgXcQ', title: 'F' }); assert.equal(r.b.favs.length, 1);
   r = await j('POST', '/api/karaoke', { on: true }); assert.equal(r.b.state.karaoke, true);
   r = await j('POST', '/api/settings', { maxHeight: 480 }); assert.equal(r.b.state.settings.maxHeight, 480);
+  // MC nói + fade out qua API điện thoại
+  r = await j('POST', '/api/player/duck', { on: true, momentary: true }); assert.equal(r.s, 200); assert.equal(r.b.state.duck, true);
+  r = await j('POST', '/api/player/duck', { on: false }); assert.equal(r.b.state.duck, false);
+  r = await j('POST', '/api/player/duck', {}); assert.equal(r.b.state.duck, true, 'không có "on" thì đảo trạng thái');
+  r = await j('POST', '/api/player/duck', { on: false }); assert.equal(r.b.state.duck, false);
+  r = await j('POST', '/api/player/fadeout', {}); assert.equal(r.s, 200); assert.equal(r.b.fade, 'none'); // chưa phát được gì
   // chưa có token -> chặn (khi gọi từ localhost vẫn được phép vì là cửa sổ của app)
   const noTok = await fetch(base + '/', {}); assert.equal(noTok.status, 200);
   const page = await fetch(base + '/static/app.js'); assert.equal(page.status, 200);

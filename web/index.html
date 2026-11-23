@@ -81,6 +81,11 @@
     <button id="b-react" aria-label="Reactions"><span class="ic"></span><span class="lbl"></span></button>
     <button id="b-add" aria-label="Add link"><span class="ic"></span><span class="lbl"></span></button>
   </div>
+  <div class="trow sec fx">
+    <button id="b-mc" aria-label="MC"><span class="ic"></span><span class="lbl"></span></button>
+    <button id="b-fade" aria-label="Fade out"><span class="ic"></span><span class="lbl"></span></button>
+    <button id="b-deck" aria-label="Script"><span class="ic"></span><span class="lbl"></span></button>
+  </div>
 </footer>
 
 <div id="pill" class="pill" hidden></div>
@@ -152,9 +157,29 @@
     <button id="r-send" type="submit" class="msgsend"></button>
   </form>
   <div id="r-quick" class="quick"></div>
+  <div id="r-sfxbox" hidden>
+    <div class="sfxhead"><b id="r-sfx-title"></b><button id="r-sfx-stop" type="button" class="sfxstop"></button></div>
+    <div id="r-sfx" class="sfxgrid"></div>
+  </div>
   <div id="r-hint" class="r-hint"></div>
   <div id="r-grid"></div>
   <button id="r-close" class="plain"></button>
+</div>
+
+<div id="sheet-deck" class="sheet" hidden>
+  <h3 id="k-title"></h3>
+  <div id="k-list" hidden>
+    <div id="k-decks" class="kdecks"></div>
+    <div id="k-empty" class="r-hint" hidden></div>
+  </div>
+  <div id="k-view" hidden>
+    <div class="khead"><button id="k-back" type="button" class="plain"></button><b id="k-name"></b></div>
+    <button id="k-next" type="button" class="primary knext"></button>
+    <div id="k-msg" class="r-hint" hidden></div>
+    <div id="k-cards" class="kgrid"></div>
+    <button id="k-reset" type="button" class="plain kreset"></button>
+  </div>
+  <button id="k-close" type="button" class="plain"></button>
 </div>
 
 <div id="sheet-menu" class="sheet" hidden>
