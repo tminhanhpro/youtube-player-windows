@@ -48,37 +48,66 @@ class StreamProxy {
     return cmd;
   }
 
-  headersFor(e, range) {
-    const h = { Range: range };
-    const src = e.headers || {};
-    for (const k of Object.keys(src)) {
-      const lk = k.toLowerCase();
-      if (lk === 'user-agent' || lk === 'accept-language') h[k] = src[k];
+  /** Tạo request tải đoạn [start,end]. 'param' = cách yt-dlp dùng (&range=a-b trên URL), 'header' = Range header. */
+  buildReq(e, start, end, mode) {
+    const headers = {};
+    const skip = ['host', 'accept-encoding', 'range', 'content-length', 'connection'];
+    for (const k of Object.keys(e.headers || {})) if (!skip.includes(k.toLowerCase())) headers[k] = e.headers[k];
+    if (mode === 'param') {
+      const u = new URL(e.url); u.searchParams.set('range', start + '-' + end);
+      return { url: u.toString(), headers };
     }
-    return h;
+    headers.Range = 'bytes=' + start + '-' + end;
+    return { url: e.url, headers };
   }
 
-  /** fetch có thử lại (mạng chập chờn/kết nối đầu tiên chậm): tối đa 3 lần, mỗi lần 10 giây. */
-  async fetchRetry(e, range, outer) {
-    let last = null;
-    for (let i = 0; i < 3; i++) {
-      if (outer && outer.aborted) throw new Error('aborted');
-      const sig = outer ? AbortSignal.any([outer, AbortSignal.timeout(10000)]) : AbortSignal.timeout(10000);
-      try {
-        const r = await fetch(e.url, { headers: this.headersFor(e, range), signal: sig });
-        if (r.status === 206 || r.status === 200) return r;
-        last = new Error('HTTP ' + r.status);
-        try { r.body && r.body.cancel(); } catch (x) { /* ignore */ }
-        if (r.status === 403 || r.status === 404 || r.status === 410) break; // link hỏng thật, thử lại cũng vô ích
-      } catch (err) { last = err; if (outer && outer.aborted) throw err; }
-      await new Promise(res => setTimeout(res, 300));
+  modesFor(e) {
+    let u; try { u = new URL(e.url); } catch (x) { return ['header']; }
+    const g = /googlevideo\.com$/.test(u.hostname) || u.searchParams.has('clen');
+    const order = g ? ['param', 'header'] : ['header'];
+    if (e.mode && order.includes(e.mode)) return [e.mode, ...order.filter(m => m !== e.mode)];
+    return order;
+  }
+
+  /**
+   * Tải một đoạn, thử lần lượt các cách (googlevideo hay 403 với cách này nhưng được với cách kia).
+   * Lỗi mạng thì thử lại 2 lần (10 giây/lần); lỗi HTTP thì chuyển cách khác ngay.
+   */
+  async fetchRange(e, start, end, outer) {
+    const tried = [];
+    for (const mode of this.modesFor(e)) {
+      for (let i = 0; i < 2; i++) {
+        if (outer && outer.aborted) throw new Error('aborted');
+        const rq = this.buildReq(e, start, end, mode);
+        const sig = outer ? AbortSignal.any([outer, AbortSignal.timeout(10000)]) : AbortSignal.timeout(10000);
+        try {
+          const r = await fetch(rq.url, { headers: rq.headers, signal: sig });
+          const want = end - start + 1, cl = Number(r.headers.get('content-length') || 0);
+          const okStatus = mode === 'param' ? r.status === 200 || r.status === 206 : r.status === 206 || (r.status === 200 && start === 0);
+          if (okStatus && !(mode === 'param' && cl && cl > want)) {
+            if (e.mode !== mode) { e.mode = mode; resolver.log('PROXY dùng cách ' + mode + (tried.length ? ' (sau khi ' + tried.join(', ') + ')' : '')); }
+            return { res: r, mode };
+          }
+          tried.push(mode + ':' + r.status);
+          try { r.body && r.body.cancel(); } catch (x) { /* ignore */ }
+          break; // lỗi HTTP -> sang cách khác
+        } catch (err) {
+          if (outer && outer.aborted) throw err;
+          tried.push(mode + ':' + (err && err.cause && err.cause.code || err && err.name || 'lỗi mạng'));
+          await new Promise(res => setTimeout(res, 300));
+        }
+      }
     }
-    resolver.log('PROXY FAIL ' + range + ' ' + (last && (last.cause && last.cause.code || last.message)));
-    throw last || new Error('proxy lỗi');
+    resolver.log('PROXY FAIL bytes=' + start + '-' + end + ' ' + tried.join(' | '));
+    throw new Error('proxy: ' + tried.join(' | '));
   }
 
   async probeSize(e, outer) {
-    const r = await this.fetchRetry(e, 'bytes=0-1', outer);
+    try {
+      const c = Number(new URL(e.url).searchParams.get('clen') || 0);
+      if (c > 0) return c;
+    } catch (x) { /* ignore */ }
+    const { res: r } = await this.fetchRange({ ...e, mode: 'header' }, 0, 1, outer);
     const cr = r.headers.get('content-range');
     try { r.body && r.body.cancel(); } catch (x) { /* ignore */ }
     const m = cr && /\/(\d+)$/.exec(cr);
@@ -104,7 +133,7 @@ class StreamProxy {
       if (m && m[1] === '' && m[2] !== '') { start = Math.max(0, total - Number(m[2])); end = total - 1; }
       if (start >= total) { res.writeHead(416, { 'content-range': 'bytes */' + total }); res.end(); return true; }
       end = Math.min(end, start + CHUNK - 1, total - 1);
-      const up = await this.fetchRetry(e, 'bytes=' + start + '-' + end, ac.signal);
+      const { res: up } = await this.fetchRange(e, start, end, ac.signal);
       res.writeHead(206, {
         'content-type': e.mime, 'accept-ranges': 'bytes', 'cache-control': 'no-store',
         'content-range': 'bytes ' + start + '-' + end + '/' + total, 'content-length': end - start + 1

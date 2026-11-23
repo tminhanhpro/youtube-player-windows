@@ -440,7 +440,7 @@ class Controller extends EventEmitter {
     }
     if (kind === 'started') {
       if (this.state === S.RESOLVING) {
-        clearTimeout(this.startTimer);
+        clearTimeout(this.startTimer); resolver.markGood(item.videoId);
         item.status = 'PLAYING';
         this.consecutiveFails = 0; this.streamFailStreak = 0; this.failScreen = false;
         this.state = this.userPaused ? S.PAUSED : S.PLAYING;
@@ -470,8 +470,9 @@ class Controller extends EventEmitter {
       this.startStream(item, pos > 5000 ? pos : 0);
       return;
     }
-    if (!this.reresolved) {
-      this.reresolved = true;
+    if ((this.reresolved | 0) < 2) {
+      this.reresolved = (this.reresolved | 0) + 1; this.sameSrcRetry = 1;
+      resolver.nextVariant(item.videoId); // link bị từ chối (403) -> thử client YouTube khác
       resolver.invalidate(item.videoId);
       this.playItem(item, pos > 5000 ? pos : 0);
       return;

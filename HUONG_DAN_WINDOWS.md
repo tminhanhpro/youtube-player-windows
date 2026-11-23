@@ -61,3 +61,6 @@ Electron không có dịch vụ nhận giọng nói của Google, nên nút micr
 
 ## Báo cáo lỗi trong app
 **Cài đặt → "Báo cáo lỗi / nhật ký phát video"**: phần TỔNG HỢP ở đầu (phiên bản, yt-dlp/deno có hay thiếu, số lần lấy link OK/lỗi, thời gian trung bình, lỗi hay gặp) rồi tới 60 dòng nhật ký gần nhất. Nút **Sao chép** để gửi lại cho người hỗ trợ, **Mở thư mục** mở file `youtube-player.log`, **Xóa nhật ký** để bắt đầu đo lại.
+
+## Lỗi 403 khi tải luồng video
+googlevideo có thể từ chối (HTTP 403) tùy cách yêu cầu hoặc tùy "client" YouTube mà yt-dlp dùng. Proxy thử lần lượt: tải theo kiểu yt-dlp (`&range=`) rồi tới Range header; nếu vẫn 403 thì app đổi client YouTube (android_vr, tv) và nhớ client nào phát được. Dòng nhật ký `PROXY dùng cách ...`, `ĐỔI client ...`, `Nhớ biến thể ...` cho biết app đã chọn gì.

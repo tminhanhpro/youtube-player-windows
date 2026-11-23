@@ -38,7 +38,15 @@ function exe(name) {
   return null;
 }
 
-function runYtDlp(url) {
+// Mỗi biến thể là một bộ client YouTube khác nhau: có client cho link bị 403 (cần PO token), có client thì không.
+const VARIANTS = [[], ['--extractor-args', 'youtube:player_client=android_vr'], ['--extractor-args', 'youtube:player_client=tv']];
+const variantOf = new Map(); // videoId -> biến thể đang dùng
+let preferred = 0;           // biến thể đã từng phát thành công
+const vOf = id => (variantOf.has(id) ? variantOf.get(id) : preferred);
+function nextVariant(id) { variantOf.set(id, (vOf(id) + 1) % VARIANTS.length); log('ĐỔI client YouTube cho ' + id + ' -> biến thể ' + variantOf.get(id)); }
+function markGood(id) { const v = vOf(id); if (v !== preferred) { preferred = v; log('Nhớ biến thể ' + v + ' phát được'); } }
+
+function runYtDlp(url, variant) {
   return new Promise((resolve, reject) => {
     const bin = exe('yt-dlp') || (process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp');
     const args = ['-4', '-J', '--no-playlist', '--no-warnings', '--skip-download', '--no-cache-dir', '--socket-timeout', '15'];
@@ -48,6 +56,7 @@ function runYtDlp(url) {
       args.push('--js-runtimes', 'deno:' + deno);
       env.PATH = path.dirname(deno) + path.delimiter + (env.PATH || '');
     }
+    for (const a of VARIANTS[variant || 0]) args.push(a);
     args.push(url);
     let out = '', err = '';
     const p = spawn(bin, args, { env, windowsHide: true });
@@ -73,7 +82,7 @@ const cache = new Map(); // "id|maxH" -> Resolved
 const inflight = new Map();
 
 function cached(id, maxH) {
-  const k = id + '|' + maxH;
+  const k = id + '|' + maxH + '|' + vOf(id);
   const r = cache.get(k);
   if (!r) return null;
   if (Date.now() > r.expiresAt - 60000) { cache.delete(k); return null; }
@@ -119,15 +128,17 @@ function build(info, maxH) {
 async function resolve(id, maxH) {
   const c = cached(id, maxH);
   if (c) return c;
-  const k = id + '|' + maxH;
+  const v = vOf(id);
+  const k = id + '|' + maxH + '|' + v;
   if (inflight.has(k)) return inflight.get(k);
   const p = (async () => {
     const t0 = Date.now();
     try {
-      const info = await runYtDlp('https://www.youtube.com/watch?v=' + id);
+      const info = await runYtDlp('https://www.youtube.com/watch?v=' + id, v);
       const r = build(info, maxH);
       cache.set(k, r);
-      log('OK ' + id + ' ' + (Date.now() - t0) + 'ms');
+      let cl = '?'; try { cl = new URL(r.sources[0].video.url).searchParams.get('c') || '?'; } catch (x) { /* ignore */ }
+      log('OK ' + id + ' ' + (Date.now() - t0) + 'ms client=' + cl + ' biến thể=' + v + ' nguồn=' + r.sources.length);
       return r;
     } catch (e) { log('FAIL ' + id + ' ' + (Date.now() - t0) + 'ms: ' + (e && e.message)); throw e; }
   })();
@@ -153,4 +164,4 @@ async function channelUrl(id) {
   } catch (e) { return null; }
 }
 
-module.exports = { setLogDir, logPath, readLog, clearLog, log, resolve, cached, invalidate, meta, channelUrl, UnavailableError, binDir, exe };
+module.exports = { nextVariant, markGood, setLogDir, logPath, readLog, clearLog, log, resolve, cached, invalidate, meta, channelUrl, UnavailableError, binDir, exe };

@@ -71,14 +71,12 @@ async function testPlayback(dir) {
     ctl.playerEvent('error', load.key); await new Promise(r => setTimeout(r, 500));
     assert.equal(loadsOf(), n + 1); assert.equal(bCount(), r0); n++;                 // nạp lại cùng link, chưa giải link mới
   }
-  ctl.playerEvent('error', load.key); await new Promise(r => setTimeout(r, 50));
-  assert.equal(cmds.filter(c => c.type === 'load').pop().videoId, 'bbbbbbbbbbb'); assert.ok(bCount() > r0);
-  load = cmds.filter(c => c.type === 'load').pop();
-  ctl.playerEvent('error', load.key); await new Promise(r => setTimeout(r, 500));
-  load = cmds.filter(c => c.type === 'load').pop();
-  ctl.playerEvent('error', load.key); await new Promise(r => setTimeout(r, 500));
-  load = cmds.filter(c => c.type === 'load').pop();
-  ctl.playerEvent('error', load.key); assert.equal(ctl.state, 'ERROR');
+  // tiếp tục lỗi: giải link lại tối đa 2 lần (đổi client YouTube), mỗi lần thử lại cùng nguồn 1 lần, rồi mới báo lỗi
+  for (let i = 0; i < 12 && ctl.state !== 'ERROR'; i++) {
+    load = cmds.filter(c => c.type === 'load').pop();
+    ctl.playerEvent('error', load.key); await new Promise(r => setTimeout(r, 500));
+  }
+  assert.equal(ctl.state, 'ERROR'); assert.equal(bCount() - r0, 2);
   await new Promise(r => setTimeout(r, 1800));
   load = cmds.filter(c => c.type === 'load').pop(); assert.equal(load.videoId, 'ccccccccccc');
   // bài không khả dụng -> bỏ qua
