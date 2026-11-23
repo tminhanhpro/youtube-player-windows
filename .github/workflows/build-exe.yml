@@ -35,13 +35,8 @@ jobs:
           Expand-Archive -Path deno.zip -DestinationPath bin -Force
           Get-ChildItem bin
 
-      - name: Dat so phien ban (1.<so lan chay>.0)
-        shell: bash
-        run: npm version "1.${{ github.run_number }}.0" --no-git-tag-version --allow-same-version
-
       - name: Build EXE
-        shell: bash
-        run: npx electron-builder --win portable --x64 --publish never
+        run: npx electron-builder --win portable --x64 --publish never -c.extraMetadata.version=1.${{ github.run_number }}.0
 
       - name: Luu file EXE (tai tu muc Artifacts)
         uses: actions/upload-artifact@v4

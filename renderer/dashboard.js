@@ -2,7 +2,7 @@
 // Giao diện TV 3 cột (port từ MainActivity của bản Android):
 // [QR + thể loại] [tìm kiếm + lưới kết quả] [đang phát + hàng đợi]
 const $ = id => document.getElementById(id);
-const ytp = window.ytp;
+const bridge = window.ytp; // KHÔNG đặt tên trùng "ytp": contextBridge đã khai báo window.ytp, khai báo lại bằng const sẽ gây SyntaxError
 const mmss = ms => { const s = Math.max(0, Math.floor(ms / 1000)); return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); };
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const thumb = id => 'https://i.ytimg.com/vi/' + id + '/mqdefault.jpg';
@@ -18,14 +18,14 @@ let shown = { q: '', n: 0, first: null, cols: 0 }, lastQueueSig = '', lastQr = n
 let voiceWasPlaying = false, tvActive = false;
 
 // ------------------------------------------------------------------ trình phát
-const player = window.createPlayer($('vbox'), (kind, key, a, b) => ytp.send('player-event', { kind, key, a, b }));
-ytp.on('player', c => player.command(c));
+const player = window.createPlayer($('vbox'), (kind, key, a, b) => bridge.send('player-event', { kind, key, a, b }));
+bridge.on('player', c => player.command(c));
 
 // ------------------------------------------------------------------ hiệu ứng cổ vũ + tin nhắn từ điện thoại
 // Khi đã xuất ra màn hình lớn thì hiệu ứng chỉ chạy trên màn lớn (tránh chạy trùng ở cả hai nơi)
 const fx = window.createFx($('fxl'));
-ytp.on('reaction', id => { if (!tvActive) fx.react(id); });
-ytp.on('message', m => { if (!tvActive) fx.message(m.sender, m.text); });
+bridge.on('reaction', id => { if (!tvActive) fx.react(id); });
+bridge.on('message', m => { if (!tvActive) fx.message(m.sender, m.text); });
 
 // ------------------------------------------------------------------ tiện ích
 let toastT = null;
@@ -73,13 +73,13 @@ function modal(o) {
 }
 
 // ------------------------------------------------------------------ trạng thái từ tiến trình chính
-ytp.on('state', s => { snap = s.snap; info = s.info; cfg = s.info.cfg || cfg; renderState(); });
-ytp.on('search', s => { search = s; renderSearch(); });
-ytp.on('cats', l => { const q = cats[selCat] && cats[selCat].q; cats = l; selCat = q == null ? -1 : cats.findIndex(c => c.q === q); renderCats(); });
-ytp.on('favs', l => { favs = l; if (favMode) renderFavs(0); else refreshHearts(); });
-ytp.on('volume', showVolume);
+bridge.on('state', s => { snap = s.snap; info = s.info; cfg = s.info.cfg || cfg; renderState(); });
+bridge.on('search', s => { search = s; renderSearch(); });
+bridge.on('cats', l => { const q = cats[selCat] && cats[selCat].q; cats = l; selCat = q == null ? -1 : cats.findIndex(c => c.q === q); renderCats(); });
+bridge.on('favs', l => { favs = l; if (favMode) renderFavs(0); else refreshHearts(); });
+bridge.on('volume', showVolume);
 // Có màn hình lớn: tiếng ra màn lớn, khung nhỏ ở đây chỉ chạy hình (tắt tiếng) và không tự phóng to
-ytp.on('tv-state', t => { tvActive = !!t.active; player.setMuted(tvActive); renderState(); });
+bridge.on('tv-state', t => { tvActive = !!t.active; player.setMuted(tvActive); renderState(); });
 
 function renderState() {
   if (!snap || !info) return;
@@ -143,8 +143,8 @@ function renderQueue() {
     r.innerHTML = '<span class="n">' + (i + 1) + '</span><img src="' + esc(thumb(qi.videoId)) + '" alt=""><div class="i"><div class="t ell">' + esc(qi.title) +
       '</div><div class="a ell">' + (qi.addedBy ? 'Yêu cầu từ: ' + esc(qi.addedBy) : 'Tự động đề xuất') + '</div></div>' +
       (qi.durationSec > 0 ? '<span class="d">' + mmss(qi.durationSec * 1000) + '</span>' : '');
-    r.onclick = () => ytp.call('playNow', [qi.itemId]).catch(() => toast('Bài này không còn trong hàng đợi'));
-    r._remove = () => ytp.call('remove', [qi.itemId]).then(() => toast('Đã xoá khỏi hàng đợi')).catch(() => {});
+    r.onclick = () => bridge.call('playNow', [qi.itemId]).catch(() => toast('Bài này không còn trong hàng đợi'));
+    r._remove = () => bridge.call('remove', [qi.itemId]).then(() => toast('Đã xoá khỏi hàng đợi')).catch(() => {});
     r._long = r._remove;
     r.oncontextmenu = e => { e.preventDefault(); r._remove(); };
     box.appendChild(r);
@@ -171,7 +171,7 @@ function makeCard(h, idx) {
   c._long = () => (favMode ? removeFav(h) : addFav(h));
   c.oncontextmenu = e => { e.preventDefault(); c._long(); };
   c._remove = () => { if (favMode) removeFav(h); };
-  c.onfocus = () => { if (!favMode && idx >= (search.results.length - 4)) ytp.call('tvLoadMore'); };
+  c.onfocus = () => { if (!favMode && idx >= (search.results.length - 4)) bridge.call('tvLoadMore'); };
   return c;
 }
 
@@ -203,12 +203,12 @@ function renderSearch() {
 function maybeMore() {
   const g = $('grid');
   if (favMode || search.loading || !search.hasMore || !search.query) return;
-  if (g.scrollHeight - g.scrollTop - g.clientHeight < 500) ytp.call('tvLoadMore');
+  if (g.scrollHeight - g.scrollTop - g.clientHeight < 500) bridge.call('tvLoadMore');
 }
 $('grid').addEventListener('scroll', maybeMore);
 
 async function addHit(h, priority) {
-  const code = await ytp.call('addHit', [h, !!priority]);
+  const code = await bridge.call('addHit', [h, !!priority]);
   toast(code === 0 ? 'Đang phát: ' + h.title : code === 1 ? (priority ? 'Đã thêm lên đầu hàng đợi' : 'Đã thêm vào hàng đợi') : code === 2 ? 'Bài này đã có trong hàng đợi' : 'Hàng đợi đã đầy');
 }
 
@@ -217,14 +217,14 @@ function refreshHearts() { document.querySelectorAll('.cardv').forEach(c => c.cl
 async function addFav(h) {
   if (isFav(h.videoId)) { toast('Bài này đã có trong Yêu thích'); return; }
   favs.unshift(h); refreshHearts();
-  await ytp.call('favAdd', [h]);
+  await bridge.call('favAdd', [h]);
   toast('❤ Đã thêm vào Yêu thích: ' + h.title);
 }
 async function removeFav(h) {
   const pos = favs.findIndex(f => f.videoId === h.videoId);
   if (pos < 0) return;
   favs.splice(pos, 1);
-  await ytp.call('favRemove', [h.videoId]);
+  await bridge.call('favRemove', [h.videoId]);
   toast('Đã xoá khỏi Yêu thích');
   if (favMode) renderFavs(pos);
 }
@@ -275,10 +275,10 @@ function syncCatToQuery(q) {
   const idx = cats.findIndex(c => c.q.toLowerCase() === String(q).trim().toLowerCase());
   if (idx !== selCat) { selCat = idx; renderCats(); }
 }
-function tvSearch(q) { leaveFavMode(); ytp.call('tvSearch', [q]); }
+function tvSearch(q) { leaveFavMode(); bridge.call('tvSearch', [q]); }
 async function doSearch(raw) {
   const q = raw.trim(); if (!q) return;
-  const r = await ytp.call('doSearch', [q]);
+  const r = await bridge.call('doSearch', [q]);
   if (r && r.link) toast('Đã thêm bài từ link'); else { syncCatToQuery(q); leaveFavMode(); }
 }
 function confirmDeleteCat(i) {
@@ -286,20 +286,20 @@ function confirmDeleteCat(i) {
   modal({
     title: 'Xoá thể loại này?',
     lines: [{ text: '“' + ct.name + '”', style: 'color:#ff1744;font-weight:700;font-size:30px' }, 'Thể loại sẽ bị xoá khỏi danh mục.\nCó thể tạo lại hoặc khôi phục trong Cài đặt.'],
-    buttons: [{ label: 'XOÁ', primary: true, run: async () => { await ytp.call('catDelete', [i, ct.name]); toast('Đã xoá thể loại “' + ct.name + '”'); } }, { label: 'GIỮ LẠI' }],
+    buttons: [{ label: 'XOÁ', primary: true, run: async () => { await bridge.call('catDelete', [i, ct.name]); toast('Đã xoá thể loại “' + ct.name + '”'); } }, { label: 'GIỮ LẠI' }],
     focus: 1 // mặc định "GIỮ LẠI" để bấm nhầm Enter không bị xoá
   });
 }
 $('addCat').onclick = () => modal({
   title: 'Tạo thể loại mới (tên cũng là từ khoá tìm)', input: { placeholder: 'Ví dụ: Nhạc không lời' },
-  buttons: [{ label: 'Tạo', primary: true, run: async v => { const i = await ytp.call('catAdd', [v || '']); if (i >= 0) setTimeout(() => selectCat(i), 100); } }, { label: 'Hủy' }]
+  buttons: [{ label: 'Tạo', primary: true, run: async v => { const i = await bridge.call('catAdd', [v || '']); if (i >= 0) setTimeout(() => selectCat(i), 100); } }, { label: 'Hủy' }]
 });
-$('qrToggle').onclick = () => ytp.call('setSetting', ['qrHidden', !cfg.qrHidden]);
+$('qrToggle').onclick = () => bridge.call('setSetting', ['qrHidden', !cfg.qrHidden]);
 
 // ------------------------------------------------------------------ karaoke, tìm kiếm, giọng nói
 $('karaoke').onclick = async () => {
   const on = !(snap && snap.karaoke);
-  await ytp.call('setKaraoke', [on]);
+  await bridge.call('setKaraoke', [on]);
   toast(on ? 'Karaoke: BẬT — mọi tìm kiếm tự thêm chữ karaoke' : 'Karaoke: TẮT');
   const q = search.query.trim(); if (q) tvSearch(q);
 };
@@ -309,13 +309,13 @@ $('addSong').onclick = () => $('q').focus();
 function resumeAfterVoice() {
   if (!voiceWasPlaying) return;
   voiceWasPlaying = false;
-  [0, 400, 1200, 2500].forEach(d => setTimeout(() => ytp.call('resume'), d));
+  [0, 400, 1200, 2500].forEach(d => setTimeout(() => bridge.call('resume'), d));
 }
 $('mic').onclick = () => {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) { toast('Máy này chưa hỗ trợ tìm bằng giọng nói — hãy gõ hoặc dùng điện thoại'); return; }
   voiceWasPlaying = !!(snap && snap.state === 'PLAYING');
-  if (voiceWasPlaying) ytp.call('pause');
+  if (voiceWasPlaying) bridge.call('pause');
   const r = new SR(); r.lang = 'vi-VN'; r.interimResults = false; r.maxAlternatives = 1;
   toast('Nói tên bài hát hoặc ca sĩ…');
   r.onresult = e => { const t = e.results[0] && e.results[0][0] && e.results[0][0].transcript; if (t) { $('q').value = t; doSearch(t); } };
@@ -325,14 +325,14 @@ $('mic').onclick = () => {
 };
 
 // ------------------------------------------------------------------ nút điều khiển
-$('b-back').onclick = () => ytp.call('seekTo', [null, -10000]);
-$('b-fwd').onclick = () => ytp.call('seekTo', [null, 10000]);
-$('b-next').onclick = () => ytp.call('skip');
-$('b-play').onclick = () => ytp.call(snap && snap.state === 'PAUSED' ? 'resume' : 'pause');
+$('b-back').onclick = () => bridge.call('seekTo', [null, -10000]);
+$('b-fwd').onclick = () => bridge.call('seekTo', [null, 10000]);
+$('b-next').onclick = () => bridge.call('skip');
+$('b-play').onclick = () => bridge.call(snap && snap.state === 'PAUSED' ? 'resume' : 'pause');
 $('bar').onclick = e => {
   if (!snap || !(snap.durationMs > 0)) return;
   const r = $('bar').getBoundingClientRect();
-  ytp.call('seekTo', [Math.round((e.clientX - r.left) / r.width * snap.durationMs), 0]);
+  bridge.call('seekTo', [Math.round((e.clientX - r.left) / r.width * snap.durationMs), 0]);
 };
 $('fsBtn').onclick = () => { lastControlAt = Date.now(); enterFullscreen(); };
 
@@ -344,22 +344,22 @@ function showVolume(v) {
 
 // ------------------------------------------------------------------ cài đặt
 async function showSettings() {
-  const s = await ytp.call('getSettings');
+  const s = await bridge.call('getSettings');
   const again = fn => async () => { await fn(); showSettings(); };
   const nextOf = (arr, v) => arr[(arr.indexOf(v) + 1) % arr.length];
   modal({
     title: 'Cài đặt Youtube Player',
     list: [
-      { label: 'Trình phát: ' + s.backend, run: again(() => ytp.call('setSetting', ['backend', nextOf(['AUTO', 'STREAM', 'IFRAME'], s.backend)])) },
-      { label: 'Độ phân giải tối đa: ' + s.maxHeight + 'p', run: again(() => ytp.call('setMaxHeight', [nextOf([360, 480, 720, 1080], s.maxHeight)])) },
-      { label: 'Tự phát bài gợi ý khi hàng đợi trống: ' + (s.seedAutoplay ? 'BẬT' : 'TẮT'), run: again(() => ytp.call('setSetting', ['seedAutoplay', !s.seedAutoplay])) },
-      { label: 'Số bài mỗi hàng kết quả: ' + s.gridCols, run: again(() => ytp.call('setSetting', ['gridCols', s.gridCols === 3 ? 2 : s.gridCols === 2 ? 1 : 3])) },
-      { label: 'Tự phóng lớn video sau: ' + (s.fullscreenSec === 0 ? 'TẮT' : s.fullscreenSec + ' giây'), run: again(() => { lastControlAt = Date.now(); return ytp.call('setSetting', ['fullscreenSec', nextOf([3, 5, 10, 15, 30, 60, 0], s.fullscreenSec)]); }) },
-      { label: 'Xuất ra màn hình ngoài (HDMI): ' + (s.tvOutput === 'OFF' ? 'TẮT' : 'TỰ ĐỘNG') + (tvActive ? ' · đang xuất' : ''), run: again(() => ytp.call('setSetting', ['tvOutput', s.tvOutput === 'OFF' ? 'AUTO' : 'OFF'])) },
-      { label: 'Khôi phục 5 thể loại mặc định', run: async () => { await ytp.call('catsReset'); selCat = -1; toast('Đã khôi phục các thể loại mặc định'); } },
+      { label: 'Trình phát: ' + s.backend, run: again(() => bridge.call('setSetting', ['backend', nextOf(['AUTO', 'STREAM', 'IFRAME'], s.backend)])) },
+      { label: 'Độ phân giải tối đa: ' + s.maxHeight + 'p', run: again(() => bridge.call('setMaxHeight', [nextOf([360, 480, 720, 1080], s.maxHeight)])) },
+      { label: 'Tự phát bài gợi ý khi hàng đợi trống: ' + (s.seedAutoplay ? 'BẬT' : 'TẮT'), run: again(() => bridge.call('setSetting', ['seedAutoplay', !s.seedAutoplay])) },
+      { label: 'Số bài mỗi hàng kết quả: ' + s.gridCols, run: again(() => bridge.call('setSetting', ['gridCols', s.gridCols === 3 ? 2 : s.gridCols === 2 ? 1 : 3])) },
+      { label: 'Tự phóng lớn video sau: ' + (s.fullscreenSec === 0 ? 'TẮT' : s.fullscreenSec + ' giây'), run: again(() => { lastControlAt = Date.now(); return bridge.call('setSetting', ['fullscreenSec', nextOf([3, 5, 10, 15, 30, 60, 0], s.fullscreenSec)]); }) },
+      { label: 'Xuất ra màn hình ngoài (HDMI): ' + (s.tvOutput === 'OFF' ? 'TẮT' : 'TỰ ĐỘNG') + (tvActive ? ' · đang xuất' : ''), run: again(() => bridge.call('setSetting', ['tvOutput', s.tvOutput === 'OFF' ? 'AUTO' : 'OFF'])) },
+      { label: 'Khôi phục 5 thể loại mặc định', run: async () => { await bridge.call('catsReset'); selCat = -1; toast('Đã khôi phục các thể loại mặc định'); } },
       { label: 'Đặt lại ghép nối (ngắt mọi điện thoại)', run: () => modal({
         title: 'Đặt lại ghép nối?', lines: ['Tất cả điện thoại đã kết nối sẽ bị ngắt. Quét lại mã QR để kết nối.'],
-        buttons: [{ label: 'Đặt lại', primary: true, run: () => ytp.call('resetPairing') }, { label: 'Hủy' }] }) },
+        buttons: [{ label: 'Đặt lại', primary: true, run: () => bridge.call('resetPairing') }, { label: 'Hủy' }] }) },
       { label: 'Xong' }
     ]
   });
@@ -432,8 +432,8 @@ document.addEventListener('keydown', e => {
   if (dialogs > 0) return;
   activity();
   const inInput = e.target === $('q');
-  if (e.key === 'MediaPlayPause') { ytp.call(snap && snap.state === 'PAUSED' ? 'resume' : 'pause'); if (fullscreen) exitFullscreen(); return; }
-  if (e.key === 'MediaTrackNext') { ytp.call('skip'); return; }
+  if (e.key === 'MediaPlayPause') { bridge.call(snap && snap.state === 'PAUSED' ? 'resume' : 'pause'); if (fullscreen) exitFullscreen(); return; }
+  if (e.key === 'MediaTrackNext') { bridge.call('skip'); return; }
   if (fullscreen) { e.preventDefault(); if (Date.now() - fsAt > 150) exitFullscreen(); return; }
   if (inInput) {
     if (e.key === 'Escape') { $('q').blur(); e.preventDefault(); }
@@ -446,11 +446,11 @@ document.addEventListener('keydown', e => {
     return;
   }
   if (e.key === '/' || (e.ctrlKey && (e.key === 'f' || e.key === 'k'))) { e.preventDefault(); $('q').focus(); $('q').select(); return; }
-  if (e.key === ' ' && !(e.target instanceof HTMLButtonElement)) { e.preventDefault(); ytp.call(snap && snap.state === 'PAUSED' ? 'resume' : 'pause'); return; }
-  if (e.key === '+' || e.key === '=') { ytp.call('changeVolume', [5]); return; }
-  if (e.key === '-') { ytp.call('changeVolume', [-5]); return; }
-  if (e.key === 'ArrowRight' && e.ctrlKey) { ytp.call('seekTo', [null, 10000]); return; }
-  if (e.key === 'ArrowLeft' && e.ctrlKey) { ytp.call('seekTo', [null, -10000]); return; }
+  if (e.key === ' ' && !(e.target instanceof HTMLButtonElement)) { e.preventDefault(); bridge.call(snap && snap.state === 'PAUSED' ? 'resume' : 'pause'); return; }
+  if (e.key === '+' || e.key === '=') { bridge.call('changeVolume', [5]); return; }
+  if (e.key === '-') { bridge.call('changeVolume', [-5]); return; }
+  if (e.key === 'ArrowRight' && e.ctrlKey) { bridge.call('seekTo', [null, 10000]); return; }
+  if (e.key === 'ArrowLeft' && e.ctrlKey) { bridge.call('seekTo', [null, -10000]); return; }
   if (e.key.startsWith('Arrow') && !e.ctrlKey) { e.preventDefault(); navigate(e.key.slice(5).toLowerCase()); return; }
   if (e.key === 'Delete' && e.target._remove) { e.preventDefault(); e.target._remove(); return; }
   if (e.key === 'Enter' && e.target._long) {
@@ -473,8 +473,8 @@ window.addEventListener('blur', () => { shiftHeld = false; });
 
 // ------------------------------------------------------------------ khởi động
 (async () => {
-  const init = await ytp.call('initial');
+  const init = await bridge.call('initial');
   cats = init.cats; favs = init.favs; search = init.search;
   renderCats(); renderSearch();
-  ytp.send('player-ready');
+  bridge.send('player-ready');
 })();
