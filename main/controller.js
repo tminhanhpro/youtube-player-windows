@@ -382,8 +382,8 @@ class Controller extends EventEmitter {
       } catch (e) {
         if (e instanceof resolver.UnavailableError) throw e;
         attempt++;
-        if (attempt >= 3 || token !== this.playToken) throw e;
-        await sleep(1000 << (attempt - 1));
+        if (attempt >= 2 || token !== this.playToken) throw e;
+        await sleep(500);
       }
     }
   }
@@ -479,7 +479,7 @@ class Controller extends EventEmitter {
     item.status = 'UNAVAILABLE';
     if (code !== 'UNAVAILABLE' && this.settings.backend === 'AUTO' && !this.usingIframe) {
       this.streamFailStreak++;
-      if (this.streamFailStreak >= 3 && this.forceIframeItem !== item.itemId) {
+      if (this.streamFailStreak >= 2 && this.forceIframeItem !== item.itemId) {
         this.forceIframeItem = item.itemId;
         this.fallbackHint = true;
         this.playItem(item, 0);
@@ -487,6 +487,8 @@ class Controller extends EventEmitter {
       }
     }
     this.consecutiveFails++;
+    const lf = this.lastFail && this.lastFail.message ? String(this.lastFail.message).replace(/^ERROR:\s*(\[[^\]]*\]\s*)?([\w-]{11}:\s*)?/, '') : 'lỗi phát video';
+    this.errDetail = lf.slice(0, 110); this.lastFail = null;
     this.emitError(code, item.title);
     this.cmd({ type: 'stop' });
     this.state = S.ERROR;
@@ -555,7 +557,7 @@ class Controller extends EventEmitter {
       volume: this.volume, tvSearch: this.searchJson(), karaoke: this.karaoke,
       favVer: this.favVersion, queueVersion: this.queueVersion,
       fallbackHint: this.fallbackHint && this.usingIframe, netWait: this.netWait, halted: this.halted,
-      error: { seq: this.errorSeq, code: this.errCode, message: this.errMsg },
+      error: { seq: this.errorSeq, code: this.errCode, message: this.errMsg, detail: this.errDetail || '' },
       lastChange: { by: this.lastActor, agoMs: Date.now() - this.lastActorAt },
       settings: {
         backend: this.settings.backend, maxHeight: this.settings.maxHeight,

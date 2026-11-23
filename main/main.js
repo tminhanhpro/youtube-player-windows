@@ -76,6 +76,22 @@ function saveFavs(list) { Favs.save(store, list); ctl.bumpFavVersion(); ctl.emit
 /** Các lệnh cửa sổ được phép gọi. */
 const SETTING_KEYS = { backend: ['AUTO', 'STREAM', 'IFRAME'], seedAutoplay: 'bool', gridCols: [1, 2, 3], fullscreenSec: 'int', qrHidden: 'bool', tvOutput: ['AUTO', 'OFF'] };
 const methods = {
+  setWindowFullscreen: on => {
+    if (!win || win.isDestroyed()) return false;
+    if (on) { if (win.isFullScreen()) return false; win.setFullScreen(true); return true; } // true = do app tự vào, app sẽ tự thoát
+    if (win.isFullScreen()) win.setFullScreen(false);
+    return false;
+  },
+  voiceTyping: () => new Promise(resolve => {
+    if (process.platform !== 'win32') return resolve(false);
+    // Bấm Win+H (Nhập bằng giọng nói của Windows) vào ô đang được chọn
+    const ps = "Add-Type -Namespace W -Name K -MemberDefinition '[DllImport(\"user32.dll\")] public static extern void keybd_event(byte b, byte s, uint f, UIntPtr e);';" +
+      '[W.K]::keybd_event(0x5B,0,0,[UIntPtr]::Zero);[W.K]::keybd_event(0x48,0,0,[UIntPtr]::Zero);Start-Sleep -Milliseconds 60;' +
+      '[W.K]::keybd_event(0x48,0,2,[UIntPtr]::Zero);[W.K]::keybd_event(0x5B,0,2,[UIntPtr]::Zero)';
+    const p = require('child_process').spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-EncodedCommand', Buffer.from(ps, 'utf16le').toString('base64')], { windowsHide: true });
+    p.on('error', () => resolve(false));
+    p.on('close', code => resolve(code === 0));
+  }),
   skip: () => ctl.skip(),
   pause: () => ctl.pause(),
   resume: () => ctl.resume(),
@@ -188,6 +204,7 @@ function createDashboard() {
 app.whenReady().then(async () => {
   Menu.setApplicationMenu(null);
   store = new Store(app.getPath('userData'));
+  resolver.setLogDir(app.getPath('userData'));
   settings = new Settings(store);
   ctl = new Controller(settings, store, path.join(__dirname, 'seed.json'));
   proxy = new StreamProxy(() => 'http://127.0.0.1:' + server.port);

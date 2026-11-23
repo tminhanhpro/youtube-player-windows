@@ -21,7 +21,7 @@ input{font:inherit;color:inherit}
 .right{width:32.5rem;display:flex;flex-direction:column;min-height:0;flex:none}
 .card{background:var(--panel);border:0.125rem solid var(--border);border-radius:1.75rem;padding:1.125rem 1.25rem}
 .scroll{overflow-y:auto;min-height:0;scrollbar-width:none}.scroll::-webkit-scrollbar{display:none}
-.nav{outline:none}.nav:focus-visible,.focused{box-shadow:0 0 0 0.1875rem var(--cyan)}
+.nav{outline:none}.nav:focus-visible,.focused{box-shadow:0 0 0 0.1875rem var(--cyan)}.sfield input.nav:focus-visible{box-shadow:none}.vbox.full video{object-fit:cover!important}
 /* trái */
 .qhead{display:flex;align-items:center;gap:0.5rem}.qt{flex:1;font-size:1.25rem;font-weight:700;line-height:1.2}
 .portpill{font-size:1rem;font-weight:700;color:var(--green);background:#2ecc7122;border:0.125rem solid var(--green);border-radius:1.25rem;padding:0.375rem 0.625rem}

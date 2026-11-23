@@ -52,3 +52,9 @@ Cửa sổ TV không cướp phím của laptop; khi đang xuất ra TV, video t
 Nút "Cổ vũ" trên remote điện thoại (76 hiệu ứng: thả tim, pháo giấy, pháo hoa, rồng, cá voi...) và tin nhắn chữ chạy sẽ hiện phủ lên video.
 Khi đang xuất ra màn hình lớn thì hiệu ứng chạy trên màn lớn (không chạy trùng ở laptop).
 Ghi chú: bản Android không có dòng chữ "Tiếp theo" chạy trên màn hình nên bản Windows cũng không có.
+
+## Chẩn đoán lỗi phát video
+Mỗi lần lấy link video, app ghi nhật ký vào `%APPDATA%\youtube-player-windows\youtube-player.log` (OK/FAIL, thời gian, lý do). Khi báo "Không phát được bài này", lý do ngắn cũng hiện ngay dưới dòng báo lỗi trong khung phát.
+
+## Micro (tìm bằng giọng nói) trên máy tính
+Electron không có dịch vụ nhận giọng nói của Google, nên nút micro mở **Nhập bằng giọng nói của Windows (Win+H)** vào ô tìm kiếm: nói xong bấm Enter. Cần Windows 10/11, bật "Nhận dạng giọng nói trực tuyến" và có micro. Trên điện thoại: dùng phím micro của bàn phím.

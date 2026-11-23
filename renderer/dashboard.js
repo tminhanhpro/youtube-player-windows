@@ -15,7 +15,7 @@ let cats = [], favs = [], search = { version: 0, query: '', source: '', results:
 let selCat = -1, favMode = false, favSearchQuery = '', startedSearch = false;
 let fullscreen = false, fsAt = 0, lastControlAt = Date.now(), dialogs = 0, savedFocus = null;
 let shown = { q: '', n: 0, first: null, cols: 0 }, lastQueueSig = '', lastQr = null, shiftHeld = false;
-let voiceWasPlaying = false, tvActive = false;
+let voiceWasPlaying = false, tvActive = false, winFsByUs = false, voiceT = null;
 
 // ------------------------------------------------------------------ trình phát
 const player = window.createPlayer($('vbox'), (kind, key, a, b) => bridge.send('player-event', { kind, key, a, b }));
@@ -105,7 +105,7 @@ function renderState() {
   const playing = st === 'PLAYING' || st === 'PAUSED';
   $('idle').textContent = playing ? '' : (
     snap.netWait ? 'Mất kết nối mạng, đang thử lại…' :
-    st === 'ERROR' ? 'Không phát được bài này, đang chuyển bài…' :
+    st === 'ERROR' ? 'Không phát được bài này, đang chuyển bài…' + (snap.error && snap.error.detail ? '\n(' + snap.error.detail + ')' : '') :
     st === 'IDLE' ? 'Chưa phát bài nào\nChọn bài ở danh sách hoặc dùng điện thoại' :
     'Đang tải bài hát…');
   $('badge').textContent = (st === 'PAUSED' ? 'ĐANG TẠM DỪNG' : 'NOW PLAYING') + (tvActive ? ' · ĐANG XUẤT RA TV' : '');
@@ -303,25 +303,30 @@ $('karaoke').onclick = async () => {
   toast(on ? 'Karaoke: BẬT — mọi tìm kiếm tự thêm chữ karaoke' : 'Karaoke: TẮT');
   const q = search.query.trim(); if (q) tvSearch(q);
 };
-$('q').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); doSearch($('q').value); $('q').blur(); } });
+$('q').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); doSearch($('q').value); $('q').blur(); resumeAfterVoice(); } });
 $('addSong').onclick = () => $('q').focus();
 
 function resumeAfterVoice() {
+  clearTimeout(voiceT);
   if (!voiceWasPlaying) return;
   voiceWasPlaying = false;
   [0, 400, 1200, 2500].forEach(d => setTimeout(() => bridge.call('resume'), d));
 }
-$('mic').onclick = () => {
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) { toast('Máy này chưa hỗ trợ tìm bằng giọng nói — hãy gõ hoặc dùng điện thoại'); return; }
+// Electron không có dịch vụ nhận giọng nói của Google (SpeechRecognition luôn báo lỗi mạng),
+// nên nút micro mở "Nhập bằng giọng nói" có sẵn của Windows (Win+H) vào ô tìm kiếm.
+$('mic').onclick = async () => {
   voiceWasPlaying = !!(snap && snap.state === 'PLAYING');
   if (voiceWasPlaying) bridge.call('pause');
-  const r = new SR(); r.lang = 'vi-VN'; r.interimResults = false; r.maxAlternatives = 1;
-  toast('Nói tên bài hát hoặc ca sĩ…');
-  r.onresult = e => { const t = e.results[0] && e.results[0][0] && e.results[0][0].transcript; if (t) { $('q').value = t; doSearch(t); } };
-  r.onerror = () => { toast('Windows chưa nhận được giọng nói (cần mạng và micro) — hãy gõ hoặc dùng điện thoại'); resumeAfterVoice(); };
-  r.onend = resumeAfterVoice;
-  try { r.start(); } catch (e) { toast('Không bật được micro'); resumeAfterVoice(); }
+  $('q').focus(); $('q').select();
+  let ok = false;
+  try { await new Promise(r => setTimeout(r, 200)); ok = await bridge.call('voiceTyping'); } catch (e) { ok = false; }
+  if (ok) {
+    toast('Nói tên bài hát/ca sĩ, xong bấm Enter để tìm');
+    clearTimeout(voiceT); voiceT = setTimeout(resumeAfterVoice, 45000);
+  } else {
+    toast('Không mở được nhập giọng nói của Windows (cần Windows 10/11 và bật Nhận dạng giọng nói trực tuyến) — hãy gõ hoặc dùng điện thoại');
+    resumeAfterVoice();
+  }
 };
 
 // ------------------------------------------------------------------ nút điều khiển
@@ -372,11 +377,13 @@ function enterFullscreen() {
   if (snap.state !== 'PLAYING' && snap.state !== 'PAUSED') return;
   fullscreen = true; fsAt = Date.now(); savedFocus = document.activeElement;
   $('count').hidden = true; $('vbox').classList.add('full'); document.body.style.cursor = 'none';
+  bridge.call('setWindowFullscreen', [true]).then(r => { winFsByUs = !!r; }).catch(() => {});
 }
 function exitFullscreen() {
   if (!fullscreen) return;
   fullscreen = false; lastControlAt = Date.now();
   $('vbox').classList.remove('full'); document.body.style.cursor = '';
+  if (winFsByUs) { winFsByUs = false; bridge.call('setWindowFullscreen', [false]).catch(() => {}); }
   const t = savedFocus && savedFocus.isConnected ? savedFocus : $('grid').firstElementChild || $('fsBtn');
   setTimeout(() => t && t.focus && t.focus(), 0);
 }

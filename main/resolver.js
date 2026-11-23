@@ -6,6 +6,13 @@ const { oembed } = require('./search');
 
 class UnavailableError extends Error {}
 
+let logFile = null;
+function setLogDir(d) { logFile = path.join(d, 'youtube-player.log'); }
+function log(msg) {
+  if (!logFile) return;
+  try { fs.appendFileSync(logFile, new Date().toISOString() + ' ' + String(msg).slice(0, 1500) + '\n'); } catch (e) { /* ignore */ }
+}
+
 /** Thư mục chứa yt-dlp.exe / deno.exe: resources/bin khi đã đóng gói, ./bin khi chạy thử. */
 function binDir() {
   const cands = [];
@@ -35,7 +42,7 @@ function runYtDlp(url) {
     args.push(url);
     let out = '', err = '';
     const p = spawn(bin, args, { env, windowsHide: true });
-    const timer = setTimeout(() => { try { p.kill(); } catch (e) { /* ignore */ } reject(new Error('yt-dlp timeout')); }, 40000);
+    const timer = setTimeout(() => { try { p.kill(); } catch (e) { /* ignore */ } reject(new Error('yt-dlp quá chậm (timeout)')); }, 30000);
     p.stdout.on('data', d => { out += d; });
     p.stderr.on('data', d => { err += d; if (err.length > 8000) err = err.slice(-8000); });
     p.on('error', e => { clearTimeout(timer); reject(new Error('Không chạy được yt-dlp: ' + e.message)); });
@@ -106,10 +113,14 @@ async function resolve(id, maxH) {
   const k = id + '|' + maxH;
   if (inflight.has(k)) return inflight.get(k);
   const p = (async () => {
-    const info = await runYtDlp('https://www.youtube.com/watch?v=' + id);
-    const r = build(info, maxH);
-    cache.set(k, r);
-    return r;
+    const t0 = Date.now();
+    try {
+      const info = await runYtDlp('https://www.youtube.com/watch?v=' + id);
+      const r = build(info, maxH);
+      cache.set(k, r);
+      log('OK ' + id + ' ' + (Date.now() - t0) + 'ms');
+      return r;
+    } catch (e) { log('FAIL ' + id + ' ' + (Date.now() - t0) + 'ms: ' + (e && e.message)); throw e; }
   })();
   inflight.set(k, p);
   try { return await p; } finally { inflight.delete(k); }
@@ -133,4 +144,4 @@ async function channelUrl(id) {
   } catch (e) { return null; }
 }
 
-module.exports = { resolve, cached, invalidate, meta, channelUrl, UnavailableError, binDir, exe };
+module.exports = { setLogDir, log, resolve, cached, invalidate, meta, channelUrl, UnavailableError, binDir, exe };
