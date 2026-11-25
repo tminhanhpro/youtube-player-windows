@@ -115,7 +115,7 @@ class Controller extends EventEmitter {
     const o = this.search;
     let list = hits;
     if (page > 0 && o.query === q) list = o.results.concat(hits.filter(h => !o.results.some(x => x.videoId === h.videoId)));
-    this.search = { version: o.version + 1, query: q, source, results: list.slice(0, 120), hasMore, page, loading: false, error: null };
+    this.search = { version: o.version + 1, query: q, source, results: list.slice(0, 300), hasMore: hasMore && list.length < 300, page, loading: false, error: null };
     this.emit('search', this.search);
   }
   searchFail(q, source, msg) {

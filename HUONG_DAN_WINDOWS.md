@@ -147,3 +147,10 @@ Tên miền googlevideo có thể trả về nhiều máy chủ; có máy chủ 
 Nhật ký cho thấy 403 hay xảy ra khi video bắt đầu tải ngay sau khi lấy link (dưới ~1 giây). Proxy giờ thử lại mỗi 0,25 giây (tối đa 7 giây), cứ 3 vòng thì đổi kết nối/máy chủ. Dòng `PROXY dùng cách ... sau N lần thử lại (link cấp X ms trước)` cho biết mất bao lâu.
 
 Các test giao diện (cần Playwright, không nằm trong `npm run check`): `node scripts/deck-ui-test.js`, `deck-live-ui-test.js`, `decks-remote-test.js` (điện thoại).
+
+
+## Tìm kiếm YouTube: kết quả và cuộn tải thêm
+- Kết quả giống YouTube: có cả MV, tuyển tập và video "playlist" dài cả giờ. Chỉ bỏ Shorts (video dọc, từ 60 giây trở xuống).
+- Muốn bớt tuyển tập (tuỳ chọn, mặc định TẮT): mở file `settings.json` trong thư mục dữ liệu app (`%APPDATA%\\youtube-player-windows`), thêm `"searchMaxMin": 10` để chỉ giữ video tối đa 10 phút (số phút tuỳ ý, `0` = không giới hạn) và/hoặc `"searchStrict": true` để bỏ video có tiêu đề kiểu tuyển tập (playlist, tuyển tập, nonstop, top 10, 1 giờ, mix...), rồi mở lại app.
+- Mỗi lần cuộn gần cuối, app gom thêm ít nhất khoảng 12 bài (tối đa 4 lô của YouTube). Tối đa 300 bài cho mỗi từ khoá.
+- Nếu cuộn mà không ra thêm, xem **Cài đặt → Báo cáo lỗi / nhật ký phát video**, các dòng bắt đầu bằng "TÌM KIẾM" cho biết app lấy kết quả từ nguồn nào và còn trang tiếp hay không.

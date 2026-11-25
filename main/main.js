@@ -134,7 +134,7 @@ async function tvLoadMore() {
   }
 }
 function searchPayload(s) {
-  return { version: s.version, query: s.query, source: s.source, results: s.results.slice(0, 120), hasMore: s.hasMore, page: s.page, loading: s.loading, error: s.error };
+  return { version: s.version, query: s.query, source: s.source, results: s.results.slice(0, 300), hasMore: s.hasMore, page: s.page, loading: s.loading, error: s.error };
 }
 function saveFavs(list) { Favs.save(store, list); ctl.bumpFavVersion(); ctl.emit('favs'); }
 
@@ -463,6 +463,8 @@ app.whenReady().then(async () => {
   resolver.setLogDir(app.getPath('userData'));
   resolver.log('START v' + app.getVersion() + ' electron ' + process.versions.electron + ' ' + process.platform);
   settings = new Settings(store);
+  searchSvc.setMaxMinutes(store.get('searchMaxMin', 0));   // 0 = không giới hạn thời lượng
+  searchSvc.setStrictTitles(store.get('searchStrict', false));
   ctl = new Controller(settings, store, path.join(__dirname, 'seed.json'));
   banners = new Banners(store, b => broadcast('banner', b));
   library = new LocalLibrary(store);

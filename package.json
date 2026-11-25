@@ -7,7 +7,7 @@
   "license": "UNLICENSED",
   "scripts": {
     "start": "electron .",
-    "check": "node scripts/check.js && node scripts/banner-test.js && node scripts/local-test.js && node scripts/bg-test.js && node scripts/sfx-test.js && node scripts/sfx-player-test.js && node scripts/sfx-duck-test.js && node scripts/decks-test.js && node scripts/deckrun-test.js && node scripts/decks-edge-test.js && node scripts/downloads-test.js && node scripts/downloader-test.js && node scripts/dlservice-test.js && node scripts/offline-test.js",
+    "check": "node scripts/check.js && node scripts/banner-test.js && node scripts/local-test.js && node scripts/bg-test.js && node scripts/search-test.js && node scripts/sfx-test.js && node scripts/sfx-player-test.js && node scripts/sfx-duck-test.js && node scripts/decks-test.js && node scripts/deckrun-test.js && node scripts/decks-edge-test.js && node scripts/downloads-test.js && node scripts/downloader-test.js && node scripts/dlservice-test.js && node scripts/offline-test.js",
     "check:ui": "node scripts/downloads-ui-test.js && node scripts/dlbadge-test.js",
     "dist": "electron-builder --win portable --x64 --publish never"
   },
