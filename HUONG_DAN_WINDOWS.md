@@ -61,6 +61,10 @@ Bấm nút **Nhạc Trong Máy** ở cột trái:
 3. Mỗi bài có **▶ Phát ngay** và **+ Hàng đợi**; nút **THÊM TẤT CẢ VÀO HÀNG ĐỢI** thêm tối đa 200 bài (đúng thứ tự tên file, nên đặt tên 01, 02, 03... để chạy theo kịch bản).
 4. **Kéo thả** file hoặc thư mục vào cửa sổ app ở bất kỳ lúc nào: app nhớ vào thư viện và cho vào hàng đợi (nếu đang rảnh thì bài đầu phát ngay).
 Bài trong máy nằm chung hàng đợi với bài YouTube, dùng chung nút MC hạ nhạc, fade vào/ra, tua, âm lượng và xuất HDMI. Nhạc không có hình (mp3...) hiện nền nốt nhạc kèm tên bài. Điện thoại vẫn thấy hàng đợi nhưng không duyệt được thư viện này.
+
+**Phát ngay một video / bài nhạc:** trong cửa sổ **Nhạc Trong Máy**, bấm **▶ Chọn & phát ngay…**, chọn file là phát liền (không cần thêm vào thư viện). Với file đã có trong thư viện thì bấm **▶ Phát ngay** ở dòng đó. Kéo thả file vào cửa sổ cũng phát ngay nếu đang rảnh. Video (mp4, mkv...) phát bằng chính hình của nó.
+
+**Hình nền / video nền khi phát nhạc không có hình (mp3...):** ở thanh **Nền khi phát nhạc** trong cùng cửa sổ, bấm **🖼 Chọn hình…** (jpg, png, webp, gif, bmp) hoặc **🎞 Chọn video…** (mp4, webm, mkv, mov, m4v). Video nền tắt tiếng và lặp lại. Dòng video trong thư viện có nút **Làm nền** để dùng luôn. Nền hiện trên cả cửa sổ máy tính và màn hình lớn, đổi được ngay khi đang phát; **Bỏ nền** để về nền tím có nốt nhạc. Nền chỉ dùng cho nhạc không có hình, không ảnh hưởng video và bài YouTube. Nên dùng file nền dưới vài chục MB cho nhẹ máy.
 Định dạng phát được: mp3, m4a, aac, wav, flac, ogg, opus · mp4, m4v, mov, webm, mkv. **Không phát được** wma, avi, wmv, flv (hãy đổi sang mp3 hoặc mp4). Video mkv/mov dùng codec lạ (HEVC, AC3, DTS) có thể báo lỗi và app tự chuyển bài kế. Nếu file bị xoá hoặc rút ổ đĩa, app báo lỗi rồi chuyển bài.
 
 ## Tải sẵn về máy (phát không cần mạng)

@@ -14,6 +14,12 @@ const MEDIA = {
   mp4: ['video', 'video/mp4'], m4v: ['video', 'video/mp4'], mov: ['video', 'video/quicktime'], webm: ['video', 'video/webm'],
   mkv: ['video', 'video/x-matroska'], ogv: ['video', 'video/ogg']
 };
+// Hình nền / video nền hiện phía sau tên bài khi phát nhạc không có hình (mp3...). Video nền luôn tắt tiếng và lặp lại.
+const BG_IMAGE = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif', bmp: 'image/bmp' };
+const BG_VIDEO = ['mp4', 'm4v', 'webm', 'mov', 'mkv', 'ogv'];
+/** 'image' | 'video' | null theo đuôi file. */
+const bgKindOf = p => { const e = extOf(p); return Object.prototype.hasOwnProperty.call(BG_IMAGE, e) ? 'image' : BG_VIDEO.includes(e) ? 'video' : null; };
+const bgMimeOf = p => (bgKindOf(p) === 'image' ? BG_IMAGE[extOf(p)] : mimeOf(p));
 const MAX_FILES = 5000;      // tối đa số file trong thư viện
 const MAX_DEPTH = 6;         // tối đa độ sâu thư mục con
 const MAX_FOLDERS = 30, MAX_SINGLES = 500;
@@ -123,4 +129,4 @@ class LocalLibrary {
   }
 }
 
-module.exports = { LocalLibrary, MEDIA, isMedia, kindOf, mimeOf, titleOf, idFor, MAX_FILES };
+module.exports = { LocalLibrary, MEDIA, BG_IMAGE, BG_VIDEO, bgKindOf, bgMimeOf, isMedia, kindOf, mimeOf, titleOf, idFor, MAX_FILES };

@@ -101,6 +101,7 @@ class DownloadService extends EventEmitter {
       if (!d) return null;
       return dedupe((d.cards || []).filter(c => c && c.type === 'yt').map(c => ({ videoId: c.videoId, title: c.title })));
     }
+    if (t === 'ids' && Array.isArray(scope.items)) return dedupe(scope.items.slice(0, MAX_BATCH).map(i => ({ videoId: i && i.videoId, title: i && i.title ? String(i.title).slice(0, 200) : '' })));
     if (t === 'ids') return uniqueIds(Array.isArray(scope.ids) ? scope.ids.slice(0, MAX_BATCH) : []).map(videoId => ({ videoId }));
     return null;
   }

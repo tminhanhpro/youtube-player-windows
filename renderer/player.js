@@ -21,7 +21,37 @@
       'background:radial-gradient(ellipse at 50% 35%,#3a2a5c,#0d0d16 75%);font-family:"Segoe UI",system-ui,sans-serif';
     const coverNote = document.createElement('div'); coverNote.textContent = '\u266A'; coverNote.style.cssText = 'font-size:34cqmin;line-height:1;color:#ff80ab;text-shadow:0 0 6cqmin #ff4d8d88';
     const coverTitle = document.createElement('div'); coverTitle.style.cssText = 'margin-top:2cqmin;font-size:7cqmin;font-weight:700;line-height:1.2;max-width:100%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;word-break:break-word';
-    cover.append(coverNote, coverTitle);
+    // Lớp nền do người dùng chọn (hình hoặc video lặp, tắt tiếng) nằm dưới nốt nhạc/tên bài, có lớp tối nhẹ cho dễ đọc chữ
+    const bgLayer = document.createElement('div');
+    bgLayer.style.cssText = 'position:absolute;inset:0;z-index:0;display:none;background:#000 center/cover no-repeat';
+    const bgScrim = document.createElement('div');
+    bgScrim.style.cssText = 'position:absolute;inset:0;z-index:0;display:none;background:linear-gradient(to top,#000a 0%,#0004 45%,#0002 100%)';
+    let bgVideo = null, bgWant = null;
+    coverNote.style.position = 'relative'; coverNote.style.zIndex = '1';
+    coverTitle.style.position = 'relative'; coverTitle.style.zIndex = '1';
+    function setBg(bg) {
+      bgWant = bg && bg.url && (bg.type === 'image' || bg.type === 'video') ? bg : null;
+      if (bgVideo) { try { bgVideo.pause(); } catch (e) { /* ignore */ } bgVideo.remove(); bgVideo = null; }
+      bgLayer.style.backgroundImage = '';
+      const on = !!bgWant;
+      bgLayer.style.display = bgScrim.style.display = on ? 'block' : 'none';
+      coverNote.style.display = on ? 'none' : 'block';
+      coverTitle.style.textShadow = on ? '0 0.4cqmin 2cqmin #000, 0 0 1cqmin #000' : '';
+      coverTitle.style.marginTop = on ? '0' : '2cqmin';
+      cover.style.justifyContent = on ? 'flex-end' : 'center';
+      cover.style.paddingBottom = on ? '9cqmin' : '0';
+      if (!on) return;
+      if (bgWant.type === 'image') bgLayer.style.backgroundImage = 'url("' + bgWant.url + '")';
+      else {
+        bgVideo = document.createElement('video');
+        bgVideo.muted = true; bgVideo.loop = true; bgVideo.playsInline = true; bgVideo.autoplay = true;
+        bgVideo.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover';
+        bgVideo.src = bgWant.url;
+        bgLayer.appendChild(bgVideo);
+        if (cover.style.display !== 'none') bgVideo.play().catch(() => {});
+      }
+    }
+    cover.append(bgLayer, bgScrim, coverNote, coverTitle);
     box.appendChild(cover); box.appendChild(video); box.appendChild(frame); box.appendChild(audio);
 
     let mode = 'none', key = '', vol = 100, muted = false, hasAudio = false, started = false, wantPaused = false;
@@ -118,6 +148,7 @@
       clearMedia();
       toFrame({ fn: 'stop' });
       video.style.display = 'none'; frame.style.display = 'none'; cover.style.display = 'none';
+      if (bgVideo) { try { bgVideo.pause(); } catch (e) { /* ignore */ } }
       mode = 'none'; key = '';
     }
 
@@ -142,7 +173,11 @@
               mode = 'stream';
               hasAudio = !!(c.src.audio && c.src.audio.url);
               video.style.display = 'block';
-              if (c.src.audioOnly) { coverTitle.textContent = c.title || ''; cover.style.display = 'flex'; }
+              if (c.src.audioOnly) {
+                coverTitle.textContent = c.title || ''; cover.style.display = 'flex';
+                setBg(c.bg);
+                if (bgVideo) bgVideo.play().catch(() => {});
+              }
               applyVol();
               video.src = c.src.video.url;
               if (hasAudio) audio.src = c.src.audio.url;
@@ -179,6 +214,11 @@
             }
             break;
           }
+          case 'bg':
+            // đổi nền khi đang phát: chỉ có tác dụng trên màn nhạc không hình
+            setBg(c.bg);
+            if (bgVideo && cover.style.display !== 'none') bgVideo.play().catch(() => {});
+            break;
           case 'stop':
             stopAll();
             break;

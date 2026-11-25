@@ -186,13 +186,29 @@ function applyGrid() {
   if (g.className !== cls) { g.className = cls; shown = { q: '', n: 0, first: null, cols }; if (favMode) renderFavs(0); else renderSearch(); }
 }
 
+// nút "Tải về" ngay trên thẻ kết quả tìm kiếm: đưa bài vào hàng tải (xem tiến độ ở nút Tải Sẵn Về Máy)
+async function downloadNow(h, btn) {
+  if (btn.classList.contains('busy')) return;
+  btn.classList.add('busy');
+  try {
+    const r = await bridge.call('dlStart', [{ type: 'ids', ids: [h.videoId], items: [{ videoId: h.videoId, title: h.title }] }]);
+    toast(!r || r.error ? (r && r.error) || 'Không bắt đầu được việc tải' :
+      r.added ? 'Đang tải về máy: ' + h.title :
+      r.have ? 'Bài này đã tải sẵn rồi' : r.queued ? 'Bài này đang trong hàng tải' : 'Không tải được bài này');
+  } catch (e) { toast('Lỗi: ' + e.message); }
+  setTimeout(() => btn.classList.remove('busy'), 1500);
+}
 function makeCard(h, idx) {
   const c = document.createElement('div');
   c.className = 'cardv' + (isFav(h.videoId) ? ' fav' : '') + (dlSet.has(h.videoId) ? ' dl' : ''); c.tabIndex = 0; c.dataset.kind = 'card'; c.dataset.vid = h.videoId;
   c.innerHTML = '<div class="th"><img loading="lazy" src="' + esc(thumb(h.videoId)) + '" alt="">' +
     (h.durationSec > 0 ? '<span class="dur">' + mmss(h.durationSec * 1000) + '</span>' : '') +
+    '<button class="dlnow" title="Tải bài này về máy" aria-label="Tải về máy" tabindex="-1"><span class="ic">' + window.ICONS.download + '</span></button>' +
     '<span class="ic h">' + window.ICONS.heart + '</span><span class="dlb" title="Đã tải sẵn về máy">⬇ Đã tải</span></div><div class="tx"><div class="ct">' + esc(h.title) + '</div><div class="cc">' + esc(h.channel) + '</div></div>';
   c.onclick = e => addHit(h, e.shiftKey || shiftHeld);
+  const dlb = c.querySelector('.dlnow');
+  dlb.onclick = e => { e.stopPropagation(); e.preventDefault(); downloadNow(h, dlb); };
+  dlb.onmousedown = e => e.stopPropagation();
   c._long = () => (favMode ? removeFav(h) : addFav(h));
   c.oncontextmenu = e => { e.preventDefault(); c._long(); };
   c._remove = () => { if (favMode) removeFav(h); };
@@ -727,13 +743,23 @@ function openLibraryDialog() {
   dlg.className = 'dlg ldlg'; dlg.setAttribute('role', 'dialog');
   dlg.innerHTML =
     '<h2>Nhạc &amp; video trong máy</h2>' +
-    '<div class="ltool"><button class="dbtn" data-r="addFiles">+ Thêm file…</button><button class="dbtn" data-r="addFolder">+ Thêm thư mục…</button>' +
+    '<div class="ltool"><button class="dbtn primary" data-r="playPick" title="Chọn một video hoặc bài nhạc bất kỳ trong máy và phát ngay, không cần thêm vào thư viện">▶ Chọn &amp; phát ngay…</button><button class="dbtn" data-r="addFiles">+ Thêm file…</button><button class="dbtn" data-r="addFolder">+ Thêm thư mục…</button>' +
     '<span class="lhint">Hoặc kéo thả file / thư mục vào cửa sổ. Phát được: ' + L_EXTS + '</span></div>' +
+    '<div class="lbg"><span class="lbgt">Nền khi phát nhạc (mp3...):</span><span class="lbgname ell"></span>' +
+    '<button class="lbtn" data-r="bgImg">🖼 Chọn hình…</button><button class="lbtn" data-r="bgVid">🎞 Chọn video…</button><button class="lbtn" data-r="bgOff">Bỏ nền</button></div>' +
     '<div class="lfold"></div>' +
     '<input class="lfilter" type="text" placeholder="Lọc theo tên bài hoặc tên thư mục" autocomplete="off" spellcheck="false">' +
     '<div class="llist"></div><div class="bstat"></div><div class="dbtns"></div>';
   const q = s => dlg.querySelector(s);
   const listEl = q('.llist'), foldEl = q('.lfold'), stat = q('.bstat'), fi = q('.lfilter');
+  const bgName = q('.lbgname'), bgOffBtn = q('[data-r="bgOff"]');
+  let bg = null;
+  function drawBg() {
+    bgName.textContent = bg ? (bg.type === 'video' ? '🎞 ' : '🖼 ') + bg.name : 'Chưa chọn (dùng nền tím có nốt nhạc)';
+    bgName.title = bg ? bg.file : '';
+    bgOffBtn.disabled = !bg;
+  }
+  const setBgState = (b, note) => { bg = b || null; drawBg(); if (note) setMsg(note); };
 
   const matches = () => { const f = lnorm(filter).trim(); return !f ? items : items.filter(it => lnorm(it.name + ' ' + it.dir).includes(f)); };
   const setMsg = t => { msg = t; drawStat(); };
@@ -766,6 +792,11 @@ function openLibraryDialog() {
       const add = document.createElement('button'); add.className = 'lbtn'; add.textContent = '+ Hàng đợi';
       add.onclick = async () => { const res = await bridge.call('localAdd', [[it.path], false]); setMsg(localResultText(res)); };
       r.append(ic, tx, play, add);
+      if (it.kind === 'video') {
+        const mb = document.createElement('button'); mb.className = 'lbtn'; mb.textContent = 'Làm nền'; mb.title = 'Dùng video này làm nền khi phát nhạc (tắt tiếng, lặp lại)';
+        mb.onclick = async () => { const b = await bridge.call('bgUse', [it.path]); setBgState(b, b ? 'Đã đặt video nền: ' + b.name : ''); };
+        r.appendChild(mb);
+      }
       if (it.single) {
         const x = document.createElement('button'); x.className = 'lbtn'; x.textContent = '✕'; x.title = 'Bỏ file này khỏi thư viện (không xoá file)'; x.setAttribute('aria-label', 'Bỏ file ' + it.name);
         x.onclick = async () => { await bridge.call('localRemove', [it.path]); await reload('Đã bỏ file khỏi thư viện'); };
@@ -794,6 +825,13 @@ function openLibraryDialog() {
   q('.dbtns').append(addAll, btn('ĐÓNG', 'dbtn', () => close()));
   q('[data-r="addFiles"]').onclick = async () => { const n = await bridge.call('localPickFiles'); await reload(n ? 'Đã thêm ' + n + ' file vào thư viện' : ''); };
   q('[data-r="addFolder"]').onclick = async () => { const ok = await bridge.call('localPickFolder'); await reload(ok ? 'Đã thêm thư mục vào thư viện' : ''); };
+  q('[data-r="playPick"]').onclick = async () => {
+    const c = await bridge.call('localPlayPick');
+    if (c === 0) { setMsg('Đang phát file vừa chọn'); close(); } else if (c === 3) setMsg('Hàng đợi đầy, không phát được'); else if (c > 0) setMsg('Không phát được file này');
+  };
+  q('[data-r="bgImg"]').onclick = async () => { const b = await bridge.call('bgPick', ['image']); setBgState(b, b ? 'Đã đặt hình nền: ' + b.name : ''); };
+  q('[data-r="bgVid"]').onclick = async () => { const b = await bridge.call('bgPick', ['video']); setBgState(b, b ? 'Đã đặt video nền: ' + b.name : ''); };
+  bgOffBtn.onclick = async () => { await bridge.call('bgClear'); setBgState(null, 'Đã bỏ nền, trở về nền mặc định'); };
   fi.addEventListener('input', () => { filter = fi.value; msg = ''; drawList(); drawStat(); });
 
   const onKey = e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); } };
@@ -804,9 +842,10 @@ function openLibraryDialog() {
   }
   document.addEventListener('keydown', onKey, true);
   root.innerHTML = ''; root.appendChild(dlg); root.hidden = false; dialogs++;
-  drawFolders(); drawList(); drawStat();
+  drawFolders(); drawList(); drawStat(); drawBg();
   setTimeout(() => fi.focus(), 0);
   reload();
+  bridge.call('bgGet').then(b => { bg = b || null; drawBg(); }).catch(() => {});
 }
 $('libBtn').onclick = openLibraryDialog;
 
@@ -1346,7 +1385,7 @@ function openDeckDialog() {
   async function leaveLive(stop) {
     const d = liveDeck(); if (d) selId = d.id;
     disarm(); mode = 'edit'; msg = ''; pick = null; picker = null;
-    if (stop) { try { await bridge.call('deckSetActive', [null]); } catch (e) { /* bỏ qua */ } live = { deckId: null, played: [], last: null, next: null }; }
+    if (stop) { try { await bridge.call('sfxStopAll'); if (snap && snap.state === 'PLAYING') await bridge.call('pause'); } catch (e) { /* bỏ qua */ } try { await bridge.call('deckSetActive', [null]); } catch (e) { /* bỏ qua */ } live = { deckId: null, played: [], last: null, next: null }; }
     drawAll();
   }
   function drawLive() {
@@ -1411,7 +1450,7 @@ function openDeckDialog() {
       await fetchLive();
       liveMsg = { text: 'Đã đặt lại: chạy lại từ lá đầu tiên', kind: 'info' }; liveScrolledTo = null; gridTop = 0; drawAll();
     };
-    const stop = noMouseFocus(mk('button', 'dbtn', 'Ngừng dùng')); stop.dataset.k = 'lvstop'; stop.title = 'Thôi chế độ dùng: lần sau mở Kịch Bản sẽ vào danh sách bộ bài (dấu đã chạy vẫn được giữ)';
+    const stop = noMouseFocus(mk('button', 'dbtn', 'Ngừng dùng')); stop.dataset.k = 'lvstop'; stop.title = 'Thôi chế độ dùng và dừng nhạc/hiệu ứng đang phát (bấm Phát để nghe tiếp). Lần sau mở Kịch Bản sẽ vào danh sách bộ bài, dấu đã chạy vẫn được giữ';
     stop.onclick = () => leaveLive(true);
     bar.append(edit, reset, mk('div', 'grow'), stop);
     liveEl.appendChild(bar);

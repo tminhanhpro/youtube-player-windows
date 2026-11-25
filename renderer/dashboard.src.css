@@ -147,6 +147,10 @@ kbd{font:700 15px "Segoe UI";color:#fff;background:#2a2a38;border:2px solid #444
 .ldlg{min-width:1000px;max-width:1200px;max-height:94vh;display:flex;flex-direction:column}
 .ltool{display:flex;align-items:center;gap:10px;margin-top:6px}.ltool .dbtn{font-size:20px;padding:10px 18px;white-space:nowrap}
 .lhint{font-size:17px;color:var(--muted)}
+.ldlg .ltool{flex-wrap:wrap}
+.lbg{display:flex;align-items:center;gap:10px;margin-top:12px;padding:8px 12px;background:var(--panel2);border:2px solid var(--border);border-radius:16px}
+.lbgt{flex:none;font-size:18px;font-weight:700}.lbgname{flex:1;min-width:0;font-size:18px;color:var(--muted)}
+.lbtn:disabled{opacity:.35;cursor:default}
 .lfold{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 4px}
 .lchip{display:inline-flex;align-items:center;gap:8px;max-width:360px;background:var(--panel2);border:2px solid var(--border);border-radius:16px;padding:4px 6px 4px 14px;font-size:18px}
 .lchip button{font-size:16px;font-weight:700;border-radius:12px;padding:2px 10px;background:#ffffff14}.lchip button:hover{background:var(--red)}
@@ -266,3 +270,8 @@ kbd{font:700 15px "Segoe UI";color:#fff;background:#2a2a38;border:2px solid #444
 
 .dlhaveList{margin-top:6px;overflow-y:auto;min-height:100px;max-height:260px;flex:none;scrollbar-width:thin}
 .dlfilter{margin-top:6px}
+
+/* nút tải về trên thẻ kết quả tìm kiếm */
+.dlnow{position:absolute;right:8px;top:8px;z-index:2;width:44px;height:44px;border-radius:22px;background:#000b;border:2px solid #fff6;display:flex;align-items:center;justify-content:center;color:#fff}.dlnow .ic{font-size:24px}
+.dlnow:hover{background:#00838f;border-color:#fff}.dlnow.busy{opacity:.5;pointer-events:none}
+.cardv.dl .dlnow{display:none}

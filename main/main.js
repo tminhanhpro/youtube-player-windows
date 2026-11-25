@@ -17,7 +17,7 @@ const { Banners, COLORS: BANNER_COLORS } = require('./banner');
 const { Soundboard } = require('./sfx');
 const { Decks } = require('./decks');
 const { runAndMark, runNext, queueDeck, makeEnv } = require('./deckrun');
-const { LocalLibrary, MEDIA, isMedia } = require('./localfiles');
+const { LocalLibrary, MEDIA, BG_IMAGE, BG_VIDEO, bgKindOf, bgMimeOf, isMedia } = require('./localfiles');
 const { DownloadService } = require('./dlservice');
 
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
@@ -52,6 +52,27 @@ function decksChanged(res) { if (res && (res.deck || res.card)) decksPush(); ret
 function checkedLocal(p) {
   if (typeof p !== 'string' || !path.isAbsolute(p) || !isMedia(p)) return null;
   try { return fs.statSync(p).isFile() ? p : null; } catch (e) { return null; }
+}
+/** Hình/video nền đang chọn (null nếu chưa chọn hoặc file đã mất). */
+function bgInfo() {
+  const f = store.get('bgFile', '');
+  if (typeof f !== 'string' || !f || !path.isAbsolute(f)) return null;
+  const kind = bgKindOf(f);
+  try { if (!kind || !fs.statSync(f).isFile()) return null; } catch (e) { return null; }
+  return { type: kind, file: f, name: path.basename(f) };
+}
+/** Dạng gửi cho trình phát: { type, url } hoặc null. */
+function bgPayload() {
+  const b = bgInfo();
+  return b ? { type: b.type, url: proxy.localFile(b.file, bgMimeOf(b.file)) } : null;
+}
+/** Đổi nền: lưu lại rồi báo cả cửa sổ laptop lẫn màn hình lớn (đang phát nhạc thì đổi ngay). */
+function bgApply(file) {
+  store.set('bgFile', file || '');
+  const bg = bgPayload();
+  tv.broadcastPlayer({ type: 'bg', bg });
+  if (tv.lastLoad && tv.lastLoad.src && tv.lastLoad.src.audioOnly) tv.lastLoad = { ...tv.lastLoad, bg };
+  return bgInfo();
 }
 function enqueueLocal(paths, priority) {
   const res = { played: 0, added: 0, dup: 0, full: 0, bad: 0 };
@@ -226,6 +247,28 @@ const methods = {
   localPickFolder: async () => {
     const r = await dialog.showOpenDialog(win, { title: 'Chọn thư mục nhạc / video', properties: ['openDirectory'] });
     return !r.canceled && r.filePaths[0] ? library.addFolder(r.filePaths[0]) : false;
+  },
+  // hình nền / video nền khi phát nhạc không có hình
+  bgGet: () => bgInfo(),
+  bgPick: async kind => {
+    const img = kind === 'image';
+    const r = await dialog.showOpenDialog(win, {
+      title: img ? 'Chọn hình nền' : 'Chọn video nền', properties: ['openFile'],
+      filters: [{ name: img ? 'Hình ảnh' : 'Video', extensions: img ? Object.keys(BG_IMAGE) : BG_VIDEO }]
+    });
+    if (r.canceled || !r.filePaths[0] || bgKindOf(r.filePaths[0]) !== (img ? 'image' : 'video')) return bgInfo();
+    return bgApply(r.filePaths[0]);
+  },
+  bgUse: p => (typeof p === 'string' && path.isAbsolute(p) && bgKindOf(p) ? bgApply(p) : bgInfo()),
+  bgClear: () => bgApply(''),
+  // chọn một file nhạc/video rồi phát ngay (không cần thêm vào thư viện)
+  localPlayPick: async () => {
+    const r = await dialog.showOpenDialog(win, {
+      title: 'Chọn nhạc / video để phát ngay', properties: ['openFile'],
+      filters: [{ name: 'Nhạc và video', extensions: Object.keys(MEDIA) }, { name: 'Tất cả file', extensions: ['*'] }]
+    });
+    const f = r.canceled ? null : checkedLocal(r.filePaths[0]);
+    return f ? ctl.playLocalNow(f) : -1;
   },
   localRemove: p => library.remove(String(p)),
   localAdd: (paths, priority) => enqueueLocal(paths, priority),
@@ -470,7 +513,11 @@ app.whenReady().then(async () => {
   tv = new TvManager({
     screen, makeWindow: createTvWindow, getDash: () => win, ctl, getMode: () => settings.tvOutput
   });
-  ctl.on('player', c => { const r = proxy.rewrite(c); tv.onCtlPlayer(r); tv.broadcastPlayer(r); });
+  ctl.on('player', c => {
+    let r = proxy.rewrite(c);
+    if (r && r.type === 'load' && r.src && r.src.audioOnly) r = { ...r, bg: bgPayload() }; // nhạc không hình: kèm nền đã chọn
+    tv.onCtlPlayer(r); tv.broadcastPlayer(r);
+  });
   // Cửa sổ giữ trình phát báo trạng thái về bộ não
   // cửa sổ đang phát hiệu ứng báo số hiệu ứng còn chạy: >0 thì hạ nhạc (nếu bật tuỳ chọn), về 0 thì trả nhạc
   ipcMain.on('sfx-playing', (_e, d) => { if (settings.sfxDuck) ctl.setSfxDuck(Number(d && d.n) > 0); });
