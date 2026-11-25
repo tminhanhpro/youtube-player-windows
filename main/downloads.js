@@ -89,6 +89,15 @@ class DownloadLibrary {
   get count() { return this.map.size; }
   /** Mọi mã bài đã tải (theo sổ đang nhớ, không dò từng file). Giao diện dùng để vẽ nhãn "Đã tải". */
   ids() { return [...this.map.keys()]; }
+  /** Danh sách bài đã tải (mới nhất trước) cho giao diện: [{ videoId, title, kind, size, mtime }]. Tên bài lấy từ tên file ("tên [mã].đuôi"). */
+  entries() {
+    const out = [];
+    for (const [videoId, r] of this.map) {
+      const base = path.basename(r.path).replace(NAME_RE, '').replace(/\s+$/, '');
+      out.push({ videoId, title: base || ('YouTube · ' + videoId), kind: r.kind, size: r.size, mtime: r.mtime });
+    }
+    return out.sort((a, b) => b.mtime - a.mtime);
+  }
   info(videoId) { const p = this.fileFor(videoId); return p ? { ...this.map.get(String(videoId)), mime: mimeOf(p) } : null; }
 
   /** Ghi nhận bài vừa tải xong (không cần quét lại). Trả về true nếu file hợp lệ. */

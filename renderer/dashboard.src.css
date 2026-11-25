@@ -39,7 +39,7 @@ input{font:inherit;color:inherit}
 .favbtn{display:flex;align-items:center;justify-content:center;gap:10px;height:64px;margin-top:10px;border-radius:22px;font-size:24px;font-weight:700;background:#c2185b}
 .favbtn .ic{font-size:28px}.favbtn.on{background:var(--pink)}
 .lbl{font-size:18px;font-weight:700;color:var(--muted);margin:20px 8px 8px}
-#cats{flex:1}
+.lscroll{flex:1;min-height:0;display:flex;flex-direction:column;padding-bottom:6px}.lscroll>*{flex:none}#cats{flex:none;overflow:visible}
 .cat{display:flex;align-items:center;height:58px;margin-bottom:6px;padding:0 20px;border-radius:22px;cursor:pointer;color:#d6d6e2;font-size:24px}
 .cat:hover{background:#ffffff22}.cat.sel{background:var(--red);color:#fff;font-weight:700}
 .cat .ic{font-size:28px;color:var(--muted);margin-right:14px}.cat.sel .ic{color:#fff}.cat .nm{flex:1}
@@ -242,7 +242,7 @@ kbd{font:700 15px "Segoe UI";color:#fff;background:#2a2a38;border:2px solid #444
 .bstat.lv-ok{color:var(--green);font-weight:700;font-size:24px}.bstat.lv-info{color:#ffb74d;font-weight:700;font-size:24px}.bstat.lv-bad{color:#ff8a80;font-weight:700;font-size:24px}
 /* tải sẵn về máy */
 .favbtn.dlbtn{background:#00838f}
-.ddlg{min-width:1100px;max-width:1280px;max-height:94vh;display:flex;flex-direction:column}
+.ddlg{min-width:1100px;max-width:1280px;max-height:94vh;display:flex;flex-direction:column;overflow-y:auto;scrollbar-width:thin}
 .dldir{display:flex;align-items:center;gap:10px;margin-top:6px;flex-wrap:wrap}
 .dldir .dbtn{font-size:19px;padding:9px 16px;white-space:nowrap}
 .dlpath{flex:1;min-width:260px;font-size:20px;font-weight:700;padding:8px 14px;border-radius:12px;background:var(--panel2);border:2px solid var(--border)}
@@ -263,3 +263,6 @@ kbd{font:700 15px "Segoe UI";color:#fff;background:#2a2a38;border:2px solid #444
 .djbar{flex:none;width:240px;height:12px;border-radius:6px;background:#ffffff1c;overflow:hidden}.djbar i{display:block;height:100%;width:0;background:#00acc1}.djrow.done .djbar i{background:#43a047}.djrow.error .djbar i{background:#e53935}
 .djpct{flex:none;width:64px;text-align:right;font-size:18px;font-weight:700;color:var(--muted)}
 .djrow .lbtn{min-width:72px;text-align:center}
+
+.dlhaveList{margin-top:6px;overflow-y:auto;min-height:100px;max-height:260px;flex:none;scrollbar-width:thin}
+.dlfilter{margin-top:6px}

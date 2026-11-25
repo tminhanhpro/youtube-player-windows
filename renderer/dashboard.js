@@ -1539,6 +1539,8 @@ function openDownloadDialog() {
     '<div class="dlmode"><span class="lhint">Kiểu tải:</span><button class="dbtn" data-m="video">Hình + tiếng</button><button class="dbtn" data-m="audio">Chỉ tiếng (m4a)</button></div>' +
     '<div class="dlwarn" hidden></div>' +
     '<div class="dlsec">PHẠM VI TẢI</div><div class="dlscopes"></div>' +
+    '<div class="dlsec"><span class="dlhave">BÀI ĐÃ TẢI SẴN</span><span class="grow"></span><button class="dbtn" data-r="addAll">+ Thêm tất cả vào hàng đợi</button></div>' +
+    '<input class="lfilter dlfilter" type="text" placeholder="Lọc theo tên bài đã tải…" spellcheck="false" autocomplete="off"><div class="dlhaveList"></div>' +
     '<div class="dlsec"><span class="dlhead">TIẾN ĐỘ</span><span class="grow"></span><button class="dbtn" data-r="cancelAll">Huỷ tất cả</button><button class="dbtn" data-r="clearDone">Xoá dòng đã xong</button></div>' +
     '<div class="dljobs"></div><div class="bstat"></div><div class="dbtns"></div>';
   const q = s => dlg.querySelector(s);
@@ -1618,10 +1620,44 @@ function openDownloadDialog() {
     drawHead();
   }
   function removeJob(id) { jobs.delete(id); const r = rows.get(id); if (r) { r.remove(); rows.delete(id); } drawHead(); }
-  function setLibrary(info) { if (!st) return; st = { ...st, dir: info.dir, defaultDir: info.defaultDir, custom: info.custom, count: info.count, scopes: info.scopes }; drawTop(); drawScopes(); }
+  // ---- danh sách bài đã tải sẵn: phát ngay / thêm vào hàng đợi
+  let have = [];
+  const haveEl = q('.dlhaveList'), haveHead = q('.dlhave'), filterEl = q('.dlfilter');
+  const norm = t => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
+  const haveMatches = () => { const f = norm(filterEl.value).trim(); return f ? have.filter(h => norm(h.title).includes(f)) : have; };
+  const addText = c => c === 0 ? 'Đang phát bài đầu tiên' : c === 1 ? 'Đã thêm vào hàng đợi' : c === 2 ? 'Bài này đã có trong hàng đợi' : 'Hàng đợi đầy';
+  function drawHave() {
+    const m = haveMatches();
+    haveHead.textContent = 'BÀI ĐÃ TẢI SẴN · ' + have.length + ' bài' + (m.length !== have.length ? ' (khớp ' + m.length + ')' : '');
+    q('[data-r="addAll"]').disabled = !m.length;
+    haveEl.textContent = '';
+    if (!m.length) { const e = document.createElement('div'); e.className = 'lhint'; e.style.padding = '6px 10px'; e.textContent = have.length ? 'Không có bài nào khớp bộ lọc.' : 'Chưa có bài nào tải sẵn trong thư mục này.'; haveEl.appendChild(e); return; }
+    m.slice(0, 300).forEach(h => {
+      const r = document.createElement('div'); r.className = 'lrow';
+      const ic = document.createElement('span'); ic.className = 'lic'; ic.textContent = h.kind === 'video' ? '🎬' : '♪';
+      const tx = document.createElement('div'); tx.className = 'ltx';
+      const nm = document.createElement('div'); nm.className = 'lnm ell'; nm.textContent = h.title; nm.title = h.title + ' [' + h.videoId + ']';
+      const sb = document.createElement('div'); sb.className = 'lsb ell'; sb.textContent = (h.kind === 'video' ? 'Hình + tiếng' : 'Chỉ tiếng') + ' · ' + fmtSize(h.size);
+      tx.append(nm, sb);
+      const play = document.createElement('button'); play.className = 'lbtn red'; play.textContent = '▶ Phát ngay';
+      play.onclick = async () => { const c = await bridge.call('dlPlayNow', [h.videoId]); setMsg(c === 3 ? 'Hàng đợi đầy' : 'Đang phát: ' + h.title); };
+      const add = document.createElement('button'); add.className = 'lbtn'; add.textContent = '+ Hàng đợi';
+      add.onclick = async () => { setMsg(addText(await bridge.call('dlAddQueue', [h.videoId, false]))); };
+      r.append(ic, tx, play, add); haveEl.appendChild(r);
+    });
+  }
+  async function loadHave() { try { have = await bridge.call('dlList') || []; } catch (e) { have = []; } drawHave(); }
+  filterEl.oninput = drawHave;
+  q('[data-r="addAll"]').onclick = async () => {
+    const m = haveMatches().slice(0, 200); let added = 0, dup = 0, full = 0, played = 0;
+    for (const h of m) { const c = await bridge.call('dlAddQueue', [h.videoId, false]); if (c === 0) played++; else if (c === 1) added++; else if (c === 2) dup++; else full++; }
+    const n = added + played;
+    setMsg((n ? 'Đã thêm ' + n + ' bài vào hàng đợi' + (played ? ' (đang phát bài đầu)' : '') : 'Không thêm được bài nào') + (dup ? ' · ' + dup + ' bài đã có trong hàng đợi' : '') + (full ? ' · hàng đợi đầy' : ''));
+  };
+  function setLibrary(info) { if (!st) return; st = { ...st, dir: info.dir, defaultDir: info.defaultDir, custom: info.custom, count: info.count, scopes: info.scopes }; drawTop(); drawScopes(); loadHave(); }
   async function load() {
     try { st = await bridge.call('dlState'); } catch (e) { setMsg('Không đọc được trạng thái tải: ' + e.message); return; }
-    (st.jobs || []).forEach(drawJob); drawTop(); drawScopes(); drawHead();
+    (st.jobs || []).forEach(drawJob); drawTop(); drawScopes(); drawHead(); loadHave();
     if (!msg) stat.textContent = st.count + ' bài đã tải sẵn trong thư mục này';
   }
 

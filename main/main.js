@@ -239,6 +239,10 @@ const methods = {
   // tải sẵn bài YouTube về máy (hộp thoại "Tải Sẵn Về Máy"). Tiến độ đẩy qua kênh 'dl-update' / 'dl-removed' / 'dl-library'.
   dlState: () => dl.state(),
   dlIds: () => dl.library.ids(),
+  dlList: () => dl.library.entries(),
+  // bài đã tải sẵn: 'phát ngay' / 'thêm vào hàng đợi' (controller tự dùng file trong máy cho mã này)
+  dlPlayNow: id => { const e = dl.library.entries().find(x => x.videoId === String(id)); return e ? ctl.playYoutubeNow(e.videoId, e.title, '', 0) : 3; },
+  dlAddQueue: (id, priority) => { const e = dl.library.entries().find(x => x.videoId === String(id)); return e ? ctl.addFromTv(e.videoId, e.title, '', 0, !!priority) : 3; },
   dlStart: scope => dl.start(scope && typeof scope === 'object' ? scope : {}),
   dlCancel: id => dl.cancel(String(id)),
   dlCancelAll: () => dl.cancelAll(),
