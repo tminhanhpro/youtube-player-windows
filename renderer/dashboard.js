@@ -113,7 +113,7 @@ function renderState() {
   $('clock').textContent = new Date().toTimeString().slice(0, 5);
   // QR
   $('port').textContent = 'CỔNG ' + info.port;
-  $('qrBody').hidden = !!cfg.qrHidden; $('qrToggle').textContent = cfg.qrHidden ? 'Hiện' : 'Ẩn';
+  $('qrBody').hidden = !!cfg.qrHidden; $('quickBtns').hidden = !!cfg.qrHidden; $('qrToggle').textContent = cfg.qrHidden ? 'Hiện' : 'Ẩn';
   if (info.qr) {
     if (lastQr !== info.qr) { $('qr').src = info.qr; lastQr = info.qr; }
     $('qr').hidden = false; $('qrCap').textContent = 'Mở camera quét để điều khiển'; $('qrUrl').textContent = info.host;
@@ -1683,3 +1683,12 @@ document.addEventListener('drop', async e => {
   try { const bi = await bridge.call('bannerInit'); bnr.list = bi.list; bnr.colors = bi.colors; bnr.last = bi.list[0] || null; if (bi.cur) applyBanner(bi.cur); } catch (e) { /* bỏ qua */ }
   bridge.send('player-ready');
 })();
+
+
+// Icon tròn ở đầu trang: bấm = bấm nút tương ứng ở cột trái (kể cả khi cột trái đang ẩn); đồng bộ trạng thái sáng
+document.querySelectorAll('.tbtn').forEach(t => {
+  const src = $(t.dataset.for);
+  t.onclick = () => src.click();
+  const sync = () => t.classList.toggle('on', src.classList.contains('on'));
+  new MutationObserver(sync).observe(src, { attributes: true, attributeFilter: ['class'] }); sync();
+});

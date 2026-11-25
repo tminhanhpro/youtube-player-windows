@@ -11,6 +11,14 @@
     <img src="logo_mark.png" class="logo" alt="">
     <h1>Youtube Player</h1><span class="tag">MUSIC TV</span>
     <span id="remoteDot" class="ic dotic"></span><span id="remote" class="remote">Chờ điện thoại kết nối</span>
+    <span class="tools">
+      <button id="t-fav" class="tbtn nav" data-for="favBtn" style="--c:#c2185b"><span class="ic" data-i="heart"></span><em>Yêu Thích</em></button>
+      <button id="t-bnr" class="tbtn nav" data-for="bnrBtn" style="--c:#0277bd"><span class="ic" data-i="banner"></span><em>Chữ Chào Mừng</em></button>
+      <button id="t-lib" class="tbtn nav" data-for="libBtn" style="--c:#2e7d32"><span class="ic" data-i="folder"></span><em>Nhạc Trong Máy</em></button>
+      <button id="t-sfx" class="tbtn nav" data-for="sfxBtn" style="--c:#6a1b9a"><span class="ic" data-i="speaker"></span><em>Hiệu Ứng Riêng</em></button>
+      <button id="t-deck" class="tbtn nav" data-for="deckBtn" style="--c:#e65100"><span class="ic" data-i="deck"></span><em>Kịch Bản</em></button>
+      <button id="t-dl" class="tbtn nav" data-for="dlBtn" style="--c:#00838f"><span class="ic" data-i="download"></span><em>Tải Sẵn Về Máy</em></button>
+    </span>
     <span class="grow"></span>
     <span class="chip"><span id="netIcon" class="ic"></span><span id="netText">Offline</span></span>
     <span id="clock" class="clock"></span>
@@ -30,12 +38,14 @@
         </div>
       </div>
       <button id="addCat" class="dashed nav"><span class="ic" data-i="plus"></span>Tạo Thể Loại Mới</button>
+      <div id="quickBtns">
       <button id="favBtn" class="favbtn nav"><span class="ic" data-i="heart"></span>Yêu Thích</button>
       <button id="bnrBtn" class="favbtn bnrbtn nav" title="Gõ chữ chào mừng hiện lên màn hình lớn (phím W: hiện/ẩn nhanh)"><span class="ic" data-i="banner"></span><span id="bnrLbl">Chữ Chào Mừng</span></button>
       <button id="libBtn" class="favbtn libbtn nav" title="Phát nhạc và video có sẵn trong máy (không cần mạng). Có thể kéo thả file vào cửa sổ"><span class="ic" data-i="folder"></span>Nhạc Trong Máy</button>
       <button id="sfxBtn" class="favbtn sfxbtn nav" title="Thêm file vỗ tay, reo hò, lời mời... làm nút hiệu ứng: đổi tên, biểu tượng, âm lượng, sắp xếp"><span class="ic" data-i="speaker"></span>Hiệu Ứng Riêng</button>
       <button id="deckBtn" class="favbtn deckbtn nav" title="Kịch bản cho từng buổi tiệc: mỗi bộ bài là một buổi, mỗi lá bài là một việc cần làm (đón khách, cắt bánh...)"><span class="ic" data-i="deck"></span>Kịch Bản</button>
       <button id="dlBtn" class="favbtn dlbtn nav" title="Tải sẵn bài YouTube về máy để phát không cần mạng: chọn Yêu thích, hàng đợi hoặc cả một bộ bài"><span class="ic" data-i="download"></span>Tải Sẵn Về Máy</button>
+      </div>
       <div class="lbl">DANH MỤC ÂM NHẠC</div>
       <div id="cats" class="scroll"></div>
       <div class="foot">
@@ -78,8 +88,6 @@
           <button id="b-play" class="cb red nav"><span class="ic" id="playIc" data-i="pause"></span><em>Phát / Dừng</em></button>
           <button id="b-next" class="cb nav"><span class="ic" data-i="next"></span><em>Bài tiếp</em></button>
           <button id="b-fwd" class="cb nav"><span class="ic" data-i="ff"></span><em>Tua 10s</em></button>
-        </div>
-        <div class="ctl mcrow">
           <button id="b-mc" class="cb sm nav" title="Giữ phím M: nhạc nhỏ lại khi MC nói, thả ra nhạc trở lại. Bấm nhanh: bật/tắt"><span class="ic" data-i="mc"></span><em id="mcLbl">MC nói · hạ nhạc (M)</em></button>
           <button id="b-fade" class="cb sm nav" title="Nhạc nhỏ dần rồi dừng (phím O). Bấm Phát để vào lại từ từ"><span class="ic" data-i="fade"></span><em id="fadeLbl">Fade out (O)</em></button>
         </div>
