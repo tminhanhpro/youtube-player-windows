@@ -91,6 +91,9 @@ kbd{font:700 15px "Segoe UI";color:#fff;background:#2a2a38;border:2px solid #444
 /* chữ chỉ hiện khi rê chuột / focus */
 .cb em,.tbtn em{display:none;position:absolute;z-index:50;left:50%;transform:translateX(-50%);white-space:nowrap;font-style:normal;font-size:18px;font-weight:700;color:#fff;background:#222230;border:2px solid var(--border);border-radius:12px;padding:6px 14px;pointer-events:none}
 .cb em{bottom:calc(100% + 8px)}.ctl.mcrow .cb em{bottom:auto;top:calc(100% + 8px)}
+/* MC nói + Fade out nằm trên thanh trên cùng, bên trái biểu tượng wifi */
+.mcgrp{display:flex;align-items:center;gap:12px;margin-right:28px}
+.top .cb{width:56px;height:56px;border-radius:18px}.top .cb em{bottom:auto;top:calc(100% + 8px)}
 .cb:hover em,.cb:focus-visible em,.tbtn:hover em,.tbtn:focus-visible em{display:block}
 .ctl.mcrow{margin-top:10px}.cb.sm .ic{font-size:30px}
 .cb.sm.on{background:#b26a00;border-color:#ffb300;color:#fff;animation:mcp 1.3s ease-in-out infinite}.cb.sm.on:hover{background:#b26a00}

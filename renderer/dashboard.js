@@ -381,6 +381,8 @@ async function doFadeOut() {
   toast(r === 'start' ? 'Đang tắt dần nhạc (' + (cfg.fadeOutSec || 4) + ' giây) — bấm lại để huỷ' : r === 'cancel' ? 'Đã huỷ tắt dần' : 'Chưa có nhạc đang phát');
 }
 $('b-fade').onclick = doFadeOut;
+$('b-voldn').onclick = () => bridge.call('changeVolume', [-5]);
+$('b-volup').onclick = () => bridge.call('changeVolume', [5]);
 $('bar').onclick = e => {
   if (!snap || !(snap.durationMs > 0)) return;
   const r = $('bar').getBoundingClientRect();
