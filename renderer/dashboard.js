@@ -296,11 +296,11 @@ async function removeFav(h) {
 }
 function showFavorites() {
   favMode = true; favSearchQuery = search.query; selCat = -1;
-  renderCats(); $('favBtn').classList.add('on'); renderFavs(0);
+  renderCats(); $('favBtn').classList.add('on'); $('homeBtn').classList.add('back'); $('homeBtn').title = 'Quay lại kết quả tìm kiếm'; renderFavs(0);
 }
 function leaveFavMode() {
   if (!favMode) return;
-  favMode = false; $('favBtn').classList.remove('on');
+  favMode = false; $('favBtn').classList.remove('on'); $('homeBtn').classList.remove('back'); $('homeBtn').title = 'Về kết quả tìm kiếm';
   shown = { q: '', n: 0, first: null, cols: 0 }; $('grid').innerHTML = '';
 }
 let favFocus = 0;
@@ -388,7 +388,22 @@ $('karaoke').onclick = async () => {
   const q = search.query.trim(); if (q) tvSearch(q);
 };
 $('q').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); doSearch($('q').value); $('q').blur(); resumeAfterVoice(); } });
-$('addSong').onclick = () => $('q').focus();
+// icon góc trái trên cùng: đang ở Yêu thích thì quay về kết quả tìm kiếm trước đó
+$('homeBtn').onclick = () => {
+  closeCatMenu(); closeQrPop(); closeFxPop();
+  if (favMode) { leaveFavMode(); $('q').value = search.query || ''; renderSearch(); syncCatToQuery(search.query); }
+  const g = $('grid'); g.scrollTop = 0;
+};
+$('goSearch').onclick = () => { doSearch($('q').value); $('q').blur(); resumeAfterVoice(); };
+// Dán Link: thêm bài YouTube bằng link / mã video vào hàng đợi (giống nút Dán link trên remote)
+$('addSong').onclick = () => modal({
+  title: 'Dán link YouTube', lines: ['Dán link YouTube hoặc mã video để thêm vào hàng đợi.'], input: { placeholder: 'https://www.youtube.com/watch?v=...' },
+  buttons: [{ label: 'Thêm', primary: true, run: async v => {
+    v = (v || '').trim(); if (!v) return;
+    const code = await bridge.call('addLink', [v]);
+    toast(code === -1 ? 'Link YouTube không hợp lệ' : code === 0 ? 'Đang phát bài vừa dán' : code === 1 ? 'Đã thêm vào hàng đợi' : code === 2 ? 'Bài này đã có trong hàng đợi' : 'Hàng đợi đã đầy');
+  } }, { label: 'Hủy' }]
+});
 
 function resumeAfterVoice() {
   clearTimeout(voiceT);
@@ -1826,6 +1841,21 @@ bridge.call('bgGet').then(drawBgName).catch(() => {});
 $('bgVid').onclick = async () => { const b = await bridge.call('bgPick', ['video']); drawBgName(b); if (b && b.type === 'video') toast('Đã đặt video chờ: ' + b.name); };
 $('bgImg').onclick = async () => { const b = await bridge.call('bgPick', ['image']); drawBgName(b); if (b && b.type === 'image') toast('Đã đặt hình chờ: ' + b.name); };
 $('bgOff').onclick = async () => { await bridge.call('bgClear'); drawBgName(null); toast('Đã bỏ video/hình chờ, về nền mặc định'); };
+
+// HIỆU ỨNG: bảng thả hiệu ứng cổ vũ (tim, pháo hoa, vỗ tay...) lên màn hình TV/LED
+(function () {
+  const grid = $('fxGrid');
+  (window.REACTIONS || []).forEach(([id, e, name]) => {
+    const b = document.createElement('button'); b.className = 'fxb nav'; b.type = 'button'; b.title = name; b.setAttribute('aria-label', name);
+    b.innerHTML = '<span class="e">' + e + '</span><span class="l">' + esc(name) + '</span>';
+    b.onclick = () => bridge.call('react', [id]); grid.appendChild(b);
+  });
+})();
+function closeFxPop() { $('fxPop').hidden = true; $('scrFx').setAttribute('aria-expanded', 'false'); }
+$('scrFx').onclick = () => { const open = $('fxPop').hidden; $('fxPop').hidden = !open; $('scrFx').setAttribute('aria-expanded', String(open)); if (open) { const f = $('fxGrid').querySelector('.fxb'); f && f.focus({ preventScroll: true }); } };
+$('fxClose').onclick = () => { closeFxPop(); $('scrFx').focus(); };
+document.addEventListener('mousedown', e => { if (!$('fxPop').hidden && !e.target.closest('#fxPop, #scrFx')) closeFxPop(); }, true);
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('fxPop').hidden) { e.preventDefault(); e.stopPropagation(); closeFxPop(); $('scrFx').focus(); } }, true);
 
 let screenMode = 'LIVE';
 function drawScreen(m) {

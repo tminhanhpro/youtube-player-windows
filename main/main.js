@@ -11,6 +11,7 @@ const { Cats, Favs } = require('./data');
 const { lanIp, newToken, netInfo, parseVideoId, clean } = require('./util');
 const searchSvc = require('./search');
 const resolver = require('./resolver');
+const REACT_IDS = require('./react-ids');
 const { StreamProxy } = require('./proxy');
 const { TvManager } = require('./tv');
 const { Banners, COLORS: BANNER_COLORS } = require('./banner');
@@ -242,6 +243,14 @@ const methods = {
   seekTo: (p, d) => ctl.seekTo(p, d),
   playNow: id => ctl.playNow(id),
   remove: id => ctl.remove(id),
+  react: id => { id = String(id || ''); if (!REACT_IDS.has(id)) return false; ctl.react(id); return true; },
+  // Dán link: thêm bài theo link/mã video. -1 link sai · 0 đang phát · 1 đã thêm · 2 đã có · 3 đầy
+  addLink: async url => {
+    const id = parseVideoId(String(url || ''));
+    if (!id) return -1;
+    let m = null; try { m = await resolver.meta(id); } catch (e) { /* không lấy được tên: dùng tạm mã video */ }
+    return ctl.addFromTv(id, m && m.title ? m.title : 'YouTube · ' + id, m && m.channel ? m.channel : '', m ? (Number(m.durationSec) | 0) : 0, false);
+  },
   prioritize: id => ctl.prioritize(id),
   moveItem: (id, delta) => { const i = ctl.findQ(id); ctl.reorder(id, i + (Number(delta) < 0 ? -1 : 1)); },
   setVolume: v => ctl.setVolumeAbs(v),

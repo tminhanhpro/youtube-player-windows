@@ -33,6 +33,7 @@ window.ICONS = (function () {
     up: w('<path d="M12 4l8 8h-5v8H9v-8H4z"/>'),
     down: w('<path d="M12 20l-8-8h5V4h6v8h5z"/>'),
     trash: w('<path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6zM19 4h-3.5l-1-1h-5l-1 1H5v2h14z"/>'),
+    back: w('<path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20z"/>'),
     caret: w('<path d="M7 10l5 5 5-5z"/>'),
     fullscreen: w('<path d="M5 5h6v2H7v4H5zM13 5h6v6h-2V7h-4zM5 13h2v4h4v2H5zM17 13h2v6h-6v-2h4z"/>')
   };

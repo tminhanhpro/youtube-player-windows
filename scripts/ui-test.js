@@ -26,6 +26,8 @@ const MOCK = () => {
       if (m === 'favAdd') { favs = [a[0], ...favs]; return true; }
       if (m === 'setKaraoke') { karaoke = a[0]; push(); return; }
       if (m === 'addHit') return 1;
+      if (m === 'addLink') return 1;
+      if (m === 'react') return true;
       if (m === 'favMove' || m === 'playHitNow' || m === 'favRemove') return true;
       if (m === 'getSettings') return cfg;
       if (m === 'setSetting') { cfg[a[0]] = a[1]; push(); return; }
@@ -102,10 +104,31 @@ const MOCK = () => {
   await page.locator('#grid .cardv').nth(1).click({ button: 'right' });
   await page.waitForTimeout(100);
   assert.ok(await page.locator('#grid .cardv').nth(1).evaluate(e => e.classList.contains('fav')), 'tim hiện lên');
+  // tiêu đề mới, nút TÌM, Dán Link, HIỆU ỨNG
+  assert.equal((await page.locator('h1').innerText()).trim(), 'LED CONTROL CENTER'); assert.equal((await page.locator('.brand small').innerText()).trim(), 'Youtube Player');
+  const gb = await page.locator('#goSearch').boundingBox(), cbb = await page.locator('#catBtn').boundingBox();
+  assert.ok(gb.x + gb.width <= cbb.x, 'TÌM nằm trước Danh Mục');
+  await page.fill('#q', 'abc'); await page.click('#goSearch'); await page.waitForTimeout(100);
+  assert.ok((await page.evaluate(() => window.__calls)).some(c => c[0] === 'doSearch' && c[1][0] === 'abc'), 'bấm TÌM thì tìm');
+  assert.equal((await page.locator('#addSong').innerText()).trim(), 'Dán Link');
+  await page.click('#addSong'); await page.fill('#modal input', 'https://youtu.be/dQw4w9WgXcQ'); await page.click('#modal .dbtn.primary'); await page.waitForTimeout(150);
+  assert.ok((await page.evaluate(() => window.__calls)).some(c => c[0] === 'addLink' && c[1][0].includes('dQw4w9WgXcQ')), 'Dán Link gọi addLink');
+  assert.equal(await page.locator('#scrFx').innerText(), 'HIỆU ỨNG');
+  const fy = await page.locator('#scrFx').boundingBox(), oy = await page.locator('#scrOff').boundingBox(); assert.ok(fy.y >= oy.y, 'HIỆU ỨNG nằm trong cụm LED');
+  await page.click('#scrFx'); await page.waitForTimeout(150);
+  assert.equal(await page.locator('#fxPop').isVisible(), true); assert.equal(await page.locator('#fxGrid .fxb').count(), 76);
+  await page.locator('#fxGrid .fxb').nth(2).click(); await page.waitForTimeout(500); await page.screenshot({ path: "/tmp/ui-fx.png" });
+  assert.ok((await page.evaluate(() => window.__calls)).some(c => c[0] === 'react' && c[1][0] === 'party'));
+  await page.keyboard.press('Escape'); assert.equal(await page.locator('#fxPop').isHidden(), true);
   // Yêu thích: mỗi bài có phát / lên / xuống / xoá
   await page.click('#t-fav'); await page.waitForTimeout(200);
   assert.equal(await page.locator('#grid .cardv').count(), 1);
   assert.equal(await page.locator('#grid .cardv .qa button').count(), 4);
+  assert.ok(await page.locator('#homeBtn').evaluate(e => e.classList.contains('back')), 'icon góc trái thành mũi tên quay lại khi ở Yêu thích');
+  await page.click('#homeBtn'); await page.waitForTimeout(200);
+  assert.equal(await page.locator('#grid .cardv .qa').count(), 0, 'bấm icon góc trái: về kết quả tìm kiếm'); assert.ok(await page.locator('#grid .cardv').count() > 3);
+  assert.equal(await page.locator('#homeBtn').evaluate(e => e.classList.contains('back')), false);
+  await page.click('#t-fav'); await page.waitForTimeout(200);
   assert.equal(await page.locator('#grid .cardv .qu').isDisabled(), true); assert.equal(await page.locator('#grid .cardv .qd').isDisabled(), true, 'chỉ 1 bài: không dời được');
   await page.locator('#grid .cardv .qp').click(); await page.waitForTimeout(100);
   assert.ok((await page.evaluate(() => window.__calls)).some(c => c[0] === 'playHitNow'));
@@ -134,9 +157,10 @@ const MOCK = () => {
   // hiệu ứng cổ vũ + tin nhắn chạy vẽ lên màn hình
   await page.evaluate(() => { window.__emit('reaction', 'heart'); window.__emit('message', { sender: 'Lan', text: 'Hát hay quá!' }); });
   await page.waitForTimeout(1200);
+  { const f = await page.locator('#fxl').boundingBox(), v = await page.locator('#vbox').boundingBox(); assert.ok(Math.abs(f.x - v.x) < 2 && Math.abs(f.width - v.width) < 2 && Math.abs(f.height - v.height) < 2, 'hiệu ứng chỉ nằm trong khung phát nhỏ'); }
   const painted = await page.evaluate(() => [...document.querySelectorAll('#fxl canvas')].map(c => { const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 3; i < d.length; i += 4 * 97) if (d[i] > 0) n++; return n; }));
   assert.ok(painted.every(n => n > 20), 'cả hai lớp (hiệu ứng + tin nhắn) có hình: ' + painted);
-  await page.screenshot({ path: '/tmp/ui-fx.png' });
+  await page.waitForTimeout(500); await page.screenshot({ path: "/tmp/ui-fx.png" });
   // 1 bài / hàng và cửa sổ nhỏ
   await page.evaluate(() => window.ytp.call('setSetting', ['gridCols', 1])); await page.waitForTimeout(300);
   await page.screenshot({ path: '/tmp/ui-1col.png' });

@@ -2,14 +2,14 @@
 <html lang="vi">
 <head>
 <meta charset="utf-8">
-<title>Youtube Player</title>
+<title>LED CONTROL CENTER</title>
 <link rel="stylesheet" href="dashboard.css">
 </head>
 <body>
 <div id="dash">
   <header class="top">
-    <img src="logo_mark.png" class="logo" alt="">
-    <h1>Youtube Player</h1><span class="tag">MUSIC TV</span>
+    <button id="homeBtn" class="logobtn nav" title="Về kết quả tìm kiếm" aria-label="Về kết quả tìm kiếm"><img src="logo_mark.png" class="logo" alt=""><span class="ic backic" data-i="back"></span></button>
+    <div class="brand"><h1>LED CONTROL CENTER</h1><small>Youtube Player</small></div><span class="tag">MUSIC TV</span>
     <span id="remoteDot" class="ic dotic"></span><span id="remote" class="remote">Chờ điện thoại kết nối</span>
     <span class="tools">
       <button id="t-fav" class="tbtn nav" data-for="favBtn" style="--c:#c2185b"><span class="ic" data-i="heart"></span><em>Yêu Thích</em></button>
@@ -30,6 +30,10 @@
     </span>
     <span class="chip"><span id="netIcon" class="ic"></span><span id="netText">Offline</span></span>
     <span id="clock" class="clock"></span>
+    <div id="fxPop" class="fxpop" hidden>
+      <div class="fxhead"><b>HIỆU ỨNG CỔ VŨ</b><span class="muted">Hiện trên khung phát nhỏ (và TV/LED)</span><button id="fxClose" class="fxx nav" aria-label="Đóng">✕</button></div>
+      <div id="fxGrid" class="scroll fxgrid"></div>
+    </div>
     <div id="qrPop" class="qrpop" hidden>
       <div class="qhead">
         <div class="qt">QUÉT KẾT NỐI REMOTE</div>
@@ -60,6 +64,7 @@
         <div id="sfield" class="sfield">
           <span class="ic" data-i="search"></span>
           <input id="q" class="nav" type="text" placeholder="Nhập tên bài hát, ca sĩ hoặc dán link YouTube" autocomplete="off" spellcheck="false">
+          <button id="goSearch" class="gobtn nav" title="Tìm (hoặc nhấn Enter)">TÌM</button>
           <div class="catwrap">
             <button id="catBtn" class="catbtn nav" aria-expanded="false" title="Danh mục âm nhạc và tạo thể loại mới"><span class="ic" data-i="folder"></span>Danh Mục<span class="ic car" data-i="caret"></span></button>
             <div id="catMenu" class="catmenu" hidden>
@@ -79,7 +84,7 @@
         <div class="card queue">
           <div class="qh"><b>HÀNG ĐỢI TIẾP THEO</b><span id="qcount" class="pill">0 bài</span></div>
           <div id="qlist" class="scroll"></div>
-          <div class="qf"><span id="qtotal" class="muted ell"></span><button id="addSong" class="link nav">Thêm bài hát</button></div>
+          <div class="qf"><span id="qtotal" class="muted ell"></span><button id="addSong" class="link nav">Dán Link</button></div>
         </div>
       </div>
     </section>
@@ -93,6 +98,7 @@
             <span id="res" class="vtag"></span>
             <span id="badge" class="badge">NOW PLAYING</span>
             <div id="count" class="count" hidden></div>
+            <div id="fxl" class="fxl"></div>
             <button id="fsBtn" class="fsbtn nav" title="Phóng to (F)"><span class="ic" data-i="fullscreen"></span></button>
           </div>
         </div>
@@ -119,16 +125,16 @@
           <button id="bgOff" class="rbtn nav" title="Bỏ video/hình chờ, về nền mặc định">ĐẶT LẠI</button>
         </div>
         <div class="rowlbl"><span>ĐIỀU KHIỂN LED VÀ THIẾT BỊ</span></div>
-        <div class="btnrow">
+        <div class="btnrow two">
           <button id="scrOn" class="rbtn nav" title="Mở xuất ra TV/LED và hiện lại hình đang phát">MỞ TV/LED</button>
           <button id="scrStandby" class="rbtn nav" title="TV/LED hiện video/hình chờ, nhạc vẫn phát">MÀN HÌNH CHỜ</button>
           <button id="scrOff" class="rbtn nav" title="TV/LED tối đen, nhạc vẫn phát">TẮT MÀN HÌNH</button>
+          <button id="scrFx" class="rbtn nav" aria-expanded="false" title="Thả tim, pháo hoa, vỗ tay... lên màn hình TV/LED (giống nút Cổ vũ trên remote)">HIỆU ỨNG</button>
         </div>
       </div>
     </aside>
   </div>
 </div>
-<div id="fxl" class="fxl"></div>
 <div id="volbox" class="volbox" hidden><div id="voltext"></div><div class="vbar"><i id="volfill"></i></div></div>
 <div id="dropHint" class="drophint" hidden>Thả file nhạc / video hoặc thư mục vào đây</div>
 <div id="toast" class="toast" hidden></div>
@@ -136,6 +142,7 @@
 <script src="icons.js"></script>
 <script src="player.js"></script>
 <script src="reactions.js"></script>
+<script src="reactlist.js"></script>
 <script src="messages.js"></script>
 <script src="banner.js"></script>
 <script src="sfx.js"></script>
