@@ -52,7 +52,7 @@ const MOCK = () => {
   assert.equal(await page.locator('#qlist .q .lth').count(), 1); assert.equal(await page.locator('#qlist .q img').count(), 1);
   assert.ok((await page.locator('#qlist .q').first().textContent()).includes('Trong máy'));
 
-  await page.click('#libBtn'); await page.waitForTimeout(400);
+  await page.click('#t-lib'); await page.waitForTimeout(400);
   assert.equal(await page.locator('.ldlg .lchip').count(), 2);
   assert.equal(await page.locator('.ldlg .lrow').count(), 300, 'chỉ vẽ 300 dòng đầu');
   assert.ok((await page.locator('.ldlg .bstat').textContent()).includes('404 bài'));

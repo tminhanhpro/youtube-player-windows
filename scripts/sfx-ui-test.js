@@ -64,7 +64,7 @@ const MOCK = () => {
 
   // mở hộp thoại
   assert.equal(await page.locator('#sfxBtn').count(), 1, 'có nút ở cột trái');
-  await page.click('#sfxBtn'); await page.waitForTimeout(400);
+  await page.click('#t-sfx'); await page.waitForTimeout(400);
   assert.equal(await page.locator('.sdlg').count(), 1);
   assert.deepEqual(await names(), ['Vỗ tay', 'Reo hò', 'Mời cô dâu chú rể', 'Trống']);
   assert.ok((await stat()).includes('4 / 40'), 'đếm số nút');
@@ -179,7 +179,7 @@ const MOCK = () => {
   assert.equal((await called('sfxUpdate')).pop()[1][1].name, 'Đang gõ dở', 'Esc chốt luôn tên đang gõ dở');
 
   // mở lại: danh sách giữ nguyên thứ tự và tên; khi KHÔNG mở bảng thì thả file vẫn vào hàng đợi như cũ
-  await page.click('#sfxBtn'); await page.waitForTimeout(300);
+  await page.click('#t-sfx'); await page.waitForTimeout(300);
   assert.equal((await names())[0], 'Đang gõ dở');
   await page.keyboard.press('Escape'); await page.waitForTimeout(100);
   await page.evaluate(() => {

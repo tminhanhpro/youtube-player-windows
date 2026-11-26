@@ -83,7 +83,7 @@ function modal(o) {
 bridge.on('state', s => { snap = s.snap; info = s.info; cfg = s.info.cfg || cfg; renderState(); });
 bridge.on('search', s => { search = s; renderSearch(); });
 bridge.on('cats', l => { const q = cats[selCat] && cats[selCat].q; cats = l; selCat = q == null ? -1 : cats.findIndex(c => c.q === q); renderCats(); });
-bridge.on('favs', l => { favs = l; if (favMode) renderFavs(0); else refreshHearts(); });
+bridge.on('favs', l => { favs = l; if (favMode) { renderFavs(favFocus); favFocus = 0; } else refreshHearts(); });
 bridge.on('volume', showVolume);
 // Có màn hình lớn: tiếng ra màn lớn, khung nhỏ ở đây chỉ chạy hình (tắt tiếng) và không tự phóng to
 bridge.on('tv-state', t => { tvActive = !!t.active; player.setMuted(tvActive); renderState(); });
@@ -113,7 +113,6 @@ function renderState() {
   $('clock').textContent = new Date().toTimeString().slice(0, 5);
   // QR
   $('port').textContent = 'CỔNG ' + info.port;
-  $('qrBody').hidden = !!cfg.qrHidden; $('quickBtns').hidden = !!cfg.qrHidden; $('qrToggle').textContent = cfg.qrHidden ? 'Hiện' : 'Ẩn';
   if (info.qr) {
     if (lastQr !== info.qr) { $('qr').src = info.qr; lastQr = info.qr; }
     $('qr').hidden = false; $('qrCap').textContent = 'Mở camera quét để điều khiển'; $('qrUrl').textContent = info.host;
@@ -131,6 +130,8 @@ function renderState() {
     'Đang tải bài hát…');
   $('badge').textContent = (st === 'PAUSED' ? 'ĐANG TẠM DỪNG' : 'NOW PLAYING') + (snap.duck ? ' · MC NÓI' : '') + (tvActive ? ' · ĐANG XUẤT RA TV' : '');
   $('b-mc').classList.toggle('on', !!snap.duck);
+  $('b-repeat').classList.toggle('on', !!snap.repeat); $('repLbl').textContent = snap.repeat ? 'Đang lặp lại bài này (bấm để tắt)' : 'Lặp lại';
+  if (!volDrag && typeof snap.volume === 'number') $('volRange').value = snap.volume;
   $('mcLbl').textContent = snap.duck ? 'MC đang nói · bấm: nhạc lại (M)' : 'MC nói · hạ nhạc (M)';
   $('b-fade').classList.toggle('on', !!snap.fading);
   $('fadeLbl').textContent = snap.fading ? 'Đang tắt dần… bấm để huỷ' : 'Fade out (O)';
@@ -167,7 +168,19 @@ function renderQueue() {
     r.className = 'q'; r.tabIndex = 0; r.dataset.kind = 'queue';
     r.innerHTML = '<span class="n">' + (i + 1) + '</span>' + (qi.local ? '<span class="lth">♪</span>' : '<img src="' + esc(thumb(qi.videoId)) + '" alt="">') + '<div class="i"><div class="t ell">' + esc(qi.title) +
       '</div><div class="a ell">' + (qi.local ? 'Trong máy' : (dlSet.has(qi.videoId) ? '<span class="dlq">⬇ Đã tải sẵn</span> · ' : '') + (qi.addedBy ? 'Yêu cầu từ: ' + esc(qi.addedBy) : 'Tự động đề xuất')) + '</div></div>' +
-      (qi.durationSec > 0 ? '<span class="d">' + mmss(qi.durationSec * 1000) + '</span>' : '');
+      '';
+    const info = r.querySelector('.i');
+    if (qi.durationSec > 0) r.querySelector('.a').insertAdjacentHTML('beforeend', ' · ' + mmss(qi.durationSec * 1000));
+    const qa = document.createElement('div'); qa.className = 'qa';
+    const qbtn = (cls, icon, title, fn, dis) => {
+      const b = document.createElement('button'); b.className = cls + ' nav'; b.title = title; b.setAttribute('aria-label', title); b.disabled = !!dis;
+      b.innerHTML = window.ICONS[icon]; b.onclick = e => { e.stopPropagation(); fn(); }; qa.appendChild(b);
+    };
+    qbtn('qp', 'play', 'Phát ngay', () => bridge.call('playNow', [qi.itemId]).catch(() => toast('Bài này không còn trong hàng đợi')));
+    qbtn('qu', 'up', 'Dời lên', () => bridge.call('moveItem', [qi.itemId, -1]).catch(() => {}), i === 0);
+    qbtn('qd', 'down', 'Dời xuống', () => bridge.call('moveItem', [qi.itemId, 1]).catch(() => {}), i === items.length - 1);
+    qbtn('qx', 'trash', 'Xoá khỏi hàng đợi', () => r._remove());
+    info.appendChild(qa);
     r.onclick = () => bridge.call('playNow', [qi.itemId]).catch(() => toast('Bài này không còn trong hàng đợi'));
     r._remove = () => bridge.call('remove', [qi.itemId]).then(() => toast('Đã xoá khỏi hàng đợi')).catch(() => {});
     r._long = r._remove;
@@ -213,6 +226,18 @@ function makeCard(h, idx) {
   c.oncontextmenu = e => { e.preventDefault(); c._long(); };
   c._remove = () => { if (favMode) removeFav(h); };
   c.onfocus = () => { if (!favMode && idx >= (search.results.length - 4)) bridge.call('tvLoadMore'); };
+  if (favMode) { // Yêu thích: cuối mỗi bài có nút phát / dời lên / dời xuống / xoá
+    const qa = document.createElement('div'); qa.className = 'qa';
+    const fb = (cls, icon, title, fn, dis) => {
+      const b = document.createElement('button'); b.className = cls + ' nav'; b.title = title; b.setAttribute('aria-label', title); b.disabled = !!dis;
+      b.innerHTML = window.ICONS[icon]; b.onclick = e => { e.stopPropagation(); fn(); }; b.onmousedown = e => e.stopPropagation(); qa.appendChild(b);
+    };
+    fb('qp', 'play', 'Phát ngay', async () => { await bridge.call('playHitNow', [h]); toast('Đang phát: ' + h.title); });
+    fb('qu', 'up', 'Dời lên (đứng trước)', () => { favFocus = idx - 1; bridge.call('favMove', [h.videoId, -1]); }, idx === 0);
+    fb('qd', 'down', 'Dời xuống (đứng sau)', () => { favFocus = idx + 1; bridge.call('favMove', [h.videoId, 1]); }, idx === favs.length - 1);
+    fb('qx', 'trash', 'Xoá khỏi Yêu thích', () => removeFav(h));
+    c.querySelector('.tx').appendChild(qa);
+  }
   return c;
 }
 
@@ -278,14 +303,16 @@ function leaveFavMode() {
   favMode = false; $('favBtn').classList.remove('on');
   shown = { q: '', n: 0, first: null, cols: 0 }; $('grid').innerHTML = '';
 }
+let favFocus = 0;
 function renderFavs(focusIdx) {
-  const g = $('grid'); g.innerHTML = '';
+  const g = $('grid'); const keepTop = g.scrollTop; g.innerHTML = '';
   shown = { q: '\u0000fav', n: -1, first: null, cols: 0 };
   $('status').textContent = favs.length ? '❤ Yêu thích · ' + favs.length + ' bài · Enter: thêm vào danh sách phát · Chuột phải / giữ Enter: xoá khỏi Yêu thích'
     : 'Chưa có bài yêu thích. Khi tìm kiếm, bấm chuột phải (hoặc giữ Enter) trên bài hát để thêm vào đây.';
   favs.forEach((h, i) => g.appendChild(makeCard(h, i)));
+  g.scrollTop = keepTop;
   const t = g.children[Math.min(focusIdx, g.children.length - 1)];
-  if (t && !fullscreen) t.focus(); else if (!g.children.length) $('favBtn').focus();
+  if (t && !fullscreen) t.focus({ preventScroll: true }); else if (!g.children.length) $('favBtn').focus();
 }
 $('favBtn').onclick = showFavorites;
 
@@ -310,6 +337,7 @@ function renderCats() {
 }
 function selectCat(i) {
   const ct = cats[i]; if (!ct) return;
+  closeCatMenu();
   selCat = i; renderCats(); $('q').value = ct.q; tvSearch(ct.q);
 }
 function syncCatToQuery(q) {
@@ -331,11 +359,26 @@ function confirmDeleteCat(i) {
     focus: 1 // mặc định "GIỮ LẠI" để bấm nhầm Enter không bị xoá
   });
 }
+// nút "Danh Mục" trong ô tìm kiếm: xổ xuống gồm "Tạo Thể Loại Mới" + tất cả danh mục âm nhạc
+function closeCatMenu() { $('catMenu').hidden = true; $('catBtn').setAttribute('aria-expanded', 'false'); }
+function toggleCatMenu() {
+  const open = $('catMenu').hidden;
+  $('catMenu').hidden = !open; $('catBtn').setAttribute('aria-expanded', String(open));
+  if (open) { const s = $('cats').querySelector('.cat.sel') || $('cats').querySelector('.cat'); if (s) s.scrollIntoView({ block: 'nearest' }); }
+}
+$('catBtn').onclick = toggleCatMenu;
+document.addEventListener('mousedown', e => { if (!$('catMenu').hidden && !e.target.closest('.catwrap')) closeCatMenu(); }, true);
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('catMenu').hidden) { e.preventDefault(); e.stopPropagation(); closeCatMenu(); $('catBtn').focus(); } }, true);
+$('addCat').addEventListener('click', closeCatMenu);
 $('addCat').onclick = () => modal({
   title: 'Tạo thể loại mới (tên cũng là từ khoá tìm)', input: { placeholder: 'Ví dụ: Nhạc không lời' },
   buttons: [{ label: 'Tạo', primary: true, run: async v => { const i = await bridge.call('catAdd', [v || '']); if (i >= 0) setTimeout(() => selectCat(i), 100); } }, { label: 'Hủy' }]
 });
-$('qrToggle').onclick = () => bridge.call('setSetting', ['qrHidden', !cfg.qrHidden]);
+// nút QR trên đầu trang: bấm hiện popup mã QR (không chiếm chỗ của kết quả/hàng đợi)
+function closeQrPop() { $('qrPop').hidden = true; $('qrBtn').setAttribute('aria-expanded', 'false'); }
+$('qrBtn').onclick = () => { const open = $('qrPop').hidden; $('qrPop').hidden = !open; $('qrBtn').setAttribute('aria-expanded', String(open)); };
+document.addEventListener('mousedown', e => { if (!$('qrPop').hidden && !e.target.closest('#qrPop, #qrBtn')) closeQrPop(); }, true);
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('qrPop').hidden) { e.preventDefault(); e.stopPropagation(); closeQrPop(); $('qrBtn').focus(); } }, true);
 
 // ------------------------------------------------------------------ karaoke, tìm kiếm, giọng nói
 $('karaoke').onclick = async () => {
@@ -381,6 +424,13 @@ async function doFadeOut() {
   toast(r === 'start' ? 'Đang tắt dần nhạc (' + (cfg.fadeOutSec || 4) + ' giây) — bấm lại để huỷ' : r === 'cancel' ? 'Đã huỷ tắt dần' : 'Chưa có nhạc đang phát');
 }
 $('b-fade').onclick = doFadeOut;
+$('b-replay').onclick = async () => { if (!snap || !snap.nowPlaying) { toast('Chưa có bài đang phát'); return; } await bridge.call('seekTo', [0, 0]); if (snap.state === 'PAUSED') bridge.call('resume'); };
+$('b-repeat').onclick = () => bridge.call('setRepeat', [!(snap && snap.repeat)]);
+// thanh gạt âm lượng (chỉ đồng bộ từ máy khi không đang kéo)
+let volDrag = false;
+$('volRange').addEventListener('pointerdown', () => { volDrag = true; });
+window.addEventListener('pointerup', () => { volDrag = false; });
+$('volRange').addEventListener('input', () => bridge.call('setVolume', [Number($('volRange').value)]));
 $('b-voldn').onclick = () => bridge.call('changeVolume', [-5]);
 $('b-volup').onclick = () => bridge.call('changeVolume', [5]);
 $('bar').onclick = e => {
@@ -1224,6 +1274,9 @@ function openDeckDialog() {
         md.onclick = async () => { await bridge.call('cardUpdate', [d.id, c.id, { mode: c.mode === 'queue' ? 'now' : 'queue' }]); };
         row.appendChild(md);
       } else row.appendChild(mk('span', 'kmode none')); // giữ các cột thẳng hàng
+      const pl = sbtn('play', '▶', 'Phát / chạy lá bài này ngay', async () => {
+        try { const r = await bridge.call('deckRunCard', [d.id, c.id]); setMsg(r && r.msg ? r.msg : 'Đã chạy lá bài'); } catch (e) { setMsg('Không chạy được: ' + (e && e.message || 'lỗi không rõ')); }
+      }, 'red'); pl.disabled = c.type === 'empty' || !!c.missing;
       const up = sbtn('up', '▲', 'Đưa lá bài lên', () => moveCard(d.id, c.id, i - 1)); up.disabled = i === 0;
       const dn = sbtn('down', '▼', 'Đưa lá bài xuống', () => moveCard(d.id, c.id, i + 1)); dn.disabled = i === d.cards.length - 1;
       const cArmed = armed === 'c:' + c.id;
@@ -1233,7 +1286,7 @@ function openDeckDialog() {
         const ok = await bridge.call('cardRemove', [d.id, c.id]);
         if (ok) { d.cards = d.cards.filter(x => x.id !== c.id); if (pick && pick.id === c.id) pick = null; drawAll(); setMsg('Đã xoá lá \"' + c.label + '\"'); }
       }, cArmed ? 'warn' : '');
-      row.append(up, dn, rm);
+      row.append(pl, up, dn, rm);
       list.appendChild(row);
       if (pick && pick.k === 'card' && pick.id === c.id) list.appendChild(iconPicker(SFX_EMOJI, async ic => { pick = null; await bridge.call('cardUpdate', [d.id, c.id, { icon: ic }]); }));
     });
@@ -1761,6 +1814,36 @@ document.addEventListener('drop', async e => {
   bridge.send('player-ready');
 })();
 
+
+// ------------------------------------------------------------------ video/hình chờ + điều khiển TV/LED
+function drawBgName(b) {
+  $('bgName').textContent = b ? (b.type === 'video' ? '🎞 ' : '🖼 ') + b.name : 'Chưa chọn (nền mặc định)';
+  $('bgName').title = b ? b.file : '';
+  $('bgOff').disabled = !b;
+}
+bridge.on('bg', drawBgName);
+bridge.call('bgGet').then(drawBgName).catch(() => {});
+$('bgVid').onclick = async () => { const b = await bridge.call('bgPick', ['video']); drawBgName(b); if (b && b.type === 'video') toast('Đã đặt video chờ: ' + b.name); };
+$('bgImg').onclick = async () => { const b = await bridge.call('bgPick', ['image']); drawBgName(b); if (b && b.type === 'image') toast('Đã đặt hình chờ: ' + b.name); };
+$('bgOff').onclick = async () => { await bridge.call('bgClear'); drawBgName(null); toast('Đã bỏ video/hình chờ, về nền mặc định'); };
+
+let screenMode = 'LIVE';
+function drawScreen(m) {
+  screenMode = m || 'LIVE';
+  $('scrOn').classList.toggle('on', screenMode === 'LIVE');
+  $('scrStandby').classList.toggle('on', screenMode === 'STANDBY');
+  $('scrOff').classList.toggle('on', screenMode === 'BLACK');
+}
+bridge.on('screen', drawScreen);
+bridge.call('getScreen').then(drawScreen).catch(() => {});
+$('scrOn').onclick = async () => {
+  const s = await bridge.call('getSettings');
+  if (s.tvOutput === 'OFF') await bridge.call('setSetting', ['tvOutput', 'AUTO']);
+  drawScreen(await bridge.call('setScreen', ['LIVE']));
+  toast(tvActive ? 'Đã mở TV/LED: đang hiện hình đang phát' : 'Đã bật xuất ra TV/LED. Cắm HDMI ở chế độ Mở rộng (Windows + P) để hiện hình.');
+};
+$('scrStandby').onclick = async () => { drawScreen(await bridge.call('setScreen', ['STANDBY'])); toast('TV/LED đang hiện màn hình chờ (nhạc vẫn phát)'); };
+$('scrOff').onclick = async () => { drawScreen(await bridge.call('setScreen', ['BLACK'])); toast('Đã tắt hình trên TV/LED (nhạc vẫn phát). Bấm MỞ TV/LED để hiện lại'); };
 
 // Icon tròn ở đầu trang: bấm = bấm nút tương ứng ở cột trái (kể cả khi cột trái đang ẩn); đồng bộ trạng thái sáng
 document.querySelectorAll('.tbtn').forEach(t => {

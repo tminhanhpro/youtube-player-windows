@@ -57,7 +57,7 @@ const TV_MOCK = () => {
   assert.equal(await page.locator('#vbox .wb:not([hidden])').count(), 0);
 
   // hộp soạn chữ
-  await page.click('#bnrBtn'); await page.waitForTimeout(500);
+  await page.click('#t-bnr'); await page.waitForTimeout(500);
   assert.equal(await page.locator('.bdlg .bitem').count(), 2);
   assert.equal(await page.locator('.bdlg textarea').inputValue(), 'Chúc mừng đám cưới\nLan & Minh');
   assert.ok(await page.locator('.bdlg .bprev .wb.on').count() === 1, 'có xem trước');

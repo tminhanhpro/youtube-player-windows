@@ -87,7 +87,7 @@ const MOCK = () => {
   const tile = label => page.locator('.lvcard', { has: page.locator('.lvcn', { hasText: new RegExp('^' + label + '$') }) });
   const cls = async label => (await tile(label).getAttribute('class')).split(/\s+/);
   const tiles = () => page.$$eval('.lvcard .lvcn', els => els.map(e => e.textContent));
-  const open = async () => { await page.click('#deckBtn'); await wait(400); };
+  const open = async () => { await page.click('#t-deck'); await wait(400); };
   const closeDlg = async () => { await page.keyboard.press('Escape'); await wait(); };
 
   // ---- 1) chưa chọn bộ dùng: mở ra là màn hình quản lý như cũ

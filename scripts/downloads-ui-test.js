@@ -47,11 +47,10 @@ const MOCK = () => {
   const called = m => page.evaluate(m => window.__calls.filter(c => c[0] === m), m);
   const txt = s => page.locator(s).first().textContent();
 
-  assert.equal(await page.locator('#dlBtn').isVisible(), true, 'nút có ở cột trái');
+  assert.equal(await page.locator('#t-dl').isVisible(), true, 'icon tròn Tải Sẵn có ở đầu trang'); assert.equal(await page.locator('#dlBtn').isVisible(), false, 'cột trái đã bỏ nút màu');
   assert.ok((await txt('#dlBtn')).includes('Tải Sẵn Về Máy'));
-  const box = await page.locator('#dlBtn').boundingBox(); assert.ok(box.y + box.height < 1080, 'nút nằm trong màn hình 1080');
 
-  await page.click('#dlBtn'); await page.waitForTimeout(300);
+  await page.click('#t-dl'); await page.waitForTimeout(300);
   assert.equal(await page.locator('.ddlg').count(), 1);
   assert.ok((await txt('.dlpath')).includes('Youtube Player'));
   assert.equal(await page.locator('.dlrow').count(), 4, 'Yêu thích + hàng đợi + 2 bộ bài');
@@ -128,7 +127,7 @@ const MOCK = () => {
   await page.keyboard.press('Escape'); await page.waitForTimeout(100);
   assert.equal(await page.locator('#modal').isHidden(), true);
   await page.evaluate(() => window.__emit('dl-update', { id: 'zzzzzzzzzzz', title: 'Z', status: 'queued', percent: 0 }));
-  await page.click('#dlBtn'); await page.waitForTimeout(300);
+  await page.click('#t-dl'); await page.waitForTimeout(300);
   assert.equal(await page.locator('.djrow[data-id="zzzzzzzzzzz"]').count(), 0, 'sự kiện sau khi đóng không làm hỏng hộp mở lại');
   assert.equal(await page.locator('.dlrow').count(), 4);
   await page.click('.ddlg .dbtns .dbtn'); assert.equal(await page.locator('#modal').isHidden(), true);

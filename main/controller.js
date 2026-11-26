@@ -54,6 +54,7 @@ class Controller extends EventEmitter {
     this.volume = 100;
     this.seq = 0;
     this.karaoke = false;
+    this.repeat = false;
     this.favVersion = 0;
     this.dlVer = 0;          // tăng mỗi khi danh sách bài đã tải đổi: giao diện thấy số này đổi thì lấy lại danh sách mã
     // âm lượng "mềm" (nhân thêm vào âm lượng chính): MC nói + fade out
@@ -260,6 +261,8 @@ class Controller extends EventEmitter {
   pause() { this.userPaused = true; this.applyPause(); this.fadeCancel(0); }
   resume() { this.userPaused = false; this.applyResume(); }
   restart() { this.cmd({ type: 'seek', ms: 0 }); }
+  /** Lặp lại: hết bài thì phát lại chính bài đang phát thay vì sang bài kế. */
+  setRepeat(on) { this.repeat = !!on; this.publish(); return this.repeat; }
 
   setMaxHeight(h) {
     const v = h <= 360 ? 360 : h <= 480 ? 480 : h <= 720 ? 720 : 1080;
@@ -644,6 +647,12 @@ class Controller extends EventEmitter {
       }
     } else if (kind === 'ended') {
       this.consecutiveFails = 0;
+      if (this.repeat) { // lặp lại bài này: tua về đầu rồi phát tiếp
+        this.pos = 0; this.lastPosChangeAt = Date.now();
+        this.cmd({ type: 'seek', ms: 0 });
+        this.cmd({ type: 'resume' });
+        return;
+      }
       this.startNext();
     } else if (kind === 'error') {
       if (this.usingIframe) this.failCurrent(item, 'UNAVAILABLE');
@@ -765,7 +774,7 @@ class Controller extends EventEmitter {
       queue: this.queue.map(itemJson),
       nextUp: this.queue[0] ? itemJson(this.queue[0]) : null,
       volume: this.volume, tvSearch: this.searchJson(), karaoke: this.karaoke,
-      duck: this.duck, fading: this.fading, fadedOut: this.fadedOut,
+      duck: this.duck, repeat: !!this.repeat, fading: this.fading, fadedOut: this.fadedOut,
       favVer: this.favVersion, dlVer: this.dlVer, queueVersion: this.queueVersion,
       fallbackHint: this.fallbackHint && this.usingIframe, netWait: this.netWait, halted: this.halted,
       error: { seq: this.errorSeq, code: this.errCode, message: this.errMsg, detail: this.errDetail || '' },

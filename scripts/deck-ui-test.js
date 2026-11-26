@@ -85,7 +85,7 @@ const MOCK = () => {
   const bs = await page.evaluate(() => { const a = document.getElementById('sfxBtn').getBoundingClientRect(), b = document.getElementById('deckBtn').getBoundingClientRect(); return { sfxBottom: a.bottom, deckTop: b.top, deckBottom: b.bottom, h: innerHeight }; });
   assert.ok(bs.deckTop >= bs.sfxBottom, 'nút Kịch Bản nằm dưới Hiệu Ứng Riêng');
   assert.ok(bs.deckBottom < bs.h, 'nút Kịch Bản không tràn khỏi màn hình');
-  await page.click('#deckBtn'); await wait(400);
+  await page.click('#t-deck'); await wait(400);
   assert.equal(await page.locator('.kdlg').count(), 1);
   assert.deepEqual(await deckNames(), ['Đám cưới 20/12', 'Sinh nhật', 'Thôi nôi']);
   assert.ok((await stat()).includes('3 / 30 bộ bài') && (await stat()).includes('5 / 60 lá'), 'đếm bộ và lá: ' + await stat());
@@ -301,7 +301,7 @@ const MOCK = () => {
   assert.equal(await page.locator('.kprow').count(), 1, 'lọc tìm được cả bài nằm ngoài 200 dòng đầu');
   await page.keyboard.press('Escape'); await page.keyboard.press('Escape'); await wait(200);
   await page.evaluate(() => { window.__bigLocal = false; });
-  if (await page.locator('.kdlg').count() === 0) { await page.click('#deckBtn'); await wait(400); }
+  if (await page.locator('.kdlg').count() === 0) { await page.click('#t-deck'); await wait(400); }
 
   // lưu hàng đợi thành bộ bài
   await page.evaluate(() => { window.__queueEmpty = true; });
@@ -340,7 +340,7 @@ const MOCK = () => {
   await page.keyboard.press('Escape'); await wait(300);
   assert.equal(await page.locator('.kdlg').count(), 0, 'Esc đóng cửa sổ');
   // mở lại: dữ liệu giữ nguyên, bộ đầu được chọn
-  await page.click('#deckBtn'); await wait(400);
+  await page.click('#t-deck'); await wait(400);
   assert.equal(await page.locator('.kdlg').count(), 1);
   assert.equal((await deckNames()).length, (await decksNow()).length);
   // nút "Nạp cả bộ vào hàng đợi": khoá khi bộ không có lá nhạc, bấm thì gọi đúng bộ và hiện kết quả

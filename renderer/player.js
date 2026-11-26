@@ -51,8 +51,31 @@
         if (cover.style.display !== 'none') bgVideo.play().catch(() => {});
       }
     }
+    // Lớp phủ chế độ màn hình TV/LED: BLACK = tối đen, STANDBY = video/hình chờ (hoặc nền mặc định). Nhạc vẫn phát phía dưới.
+    const scr = document.createElement('div');
+    scr.style.cssText = 'position:absolute;inset:0;z-index:2;display:none;background:#000;overflow:hidden;container-type:size;align-items:center;justify-content:center;flex-direction:column;color:#fff;font-family:"Segoe UI",system-ui,sans-serif';
+    let scrVideo = null;
+    function setScreen(mode, bg) {
+      if (scrVideo) { try { scrVideo.pause(); } catch (e) { /* ignore */ } scrVideo = null; }
+      scr.textContent = ''; scr.style.background = '#000';
+      if (mode !== 'STANDBY' && mode !== 'BLACK') { scr.style.display = 'none'; return; }
+      scr.style.display = 'flex';
+      if (mode === 'BLACK') return;
+      const ok = bg && bg.url && (bg.type === 'image' || bg.type === 'video');
+      if (ok && bg.type === 'image') { scr.style.background = '#000 url("' + bg.url + '") center/cover no-repeat'; return; }
+      if (ok) {
+        scrVideo = document.createElement('video');
+        scrVideo.muted = true; scrVideo.loop = true; scrVideo.playsInline = true; scrVideo.autoplay = true;
+        scrVideo.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover';
+        scrVideo.src = bg.url; scr.appendChild(scrVideo); scrVideo.play().catch(() => {});
+        return;
+      }
+      scr.style.background = 'radial-gradient(ellipse at 50% 35%,#3a2a5c,#0d0d16 75%)';
+      const n = document.createElement('div'); n.textContent = '\u266A'; n.style.cssText = 'font-size:34cqmin;line-height:1;color:#ff80ab;text-shadow:0 0 6cqmin #ff4d8d88';
+      scr.appendChild(n);
+    }
     cover.append(bgLayer, bgScrim, coverNote, coverTitle);
-    box.appendChild(cover); box.appendChild(video); box.appendChild(frame); box.appendChild(audio);
+    box.appendChild(cover); box.appendChild(video); box.appendChild(frame); box.appendChild(audio); box.appendChild(scr);
 
     let mode = 'none', key = '', vol = 100, muted = false, hasAudio = false, started = false, wantPaused = false;
     let startMs = 0, posTimer = null, frameReady = false, pending = null;
@@ -218,6 +241,9 @@
             // đổi nền khi đang phát: chỉ có tác dụng trên màn nhạc không hình
             setBg(c.bg);
             if (bgVideo && cover.style.display !== 'none') bgVideo.play().catch(() => {});
+            break;
+          case 'screen':
+            setScreen(c.mode, c.bg);
             break;
           case 'stop':
             stopAll();

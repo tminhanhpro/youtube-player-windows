@@ -24,25 +24,27 @@
       <button id="b-mc" class="cb sm nav" title="Giữ phím M: nhạc nhỏ lại khi MC nói, thả ra nhạc trở lại. Bấm nhanh: bật/tắt"><span class="ic" data-i="mc"></span><em id="mcLbl">MC nói · hạ nhạc (M)</em></button>
       <button id="b-fade" class="cb sm nav" title="Nhạc nhỏ dần rồi dừng (phím O). Bấm Phát để vào lại từ từ"><span class="ic" data-i="fade"></span><em id="fadeLbl">Fade out (O)</em></button>
     </span>
+    <span class="mcgrp tgrp">
+      <button id="qrBtn" class="cb nav" aria-expanded="false"><span class="ic" data-i="qr"></span><em>Mã QR kết nối remote</em></button>
+      <button id="gear" class="cb nav"><span class="ic" data-i="gear"></span><em>Cài đặt</em></button>
+    </span>
     <span class="chip"><span id="netIcon" class="ic"></span><span id="netText">Offline</span></span>
     <span id="clock" class="clock"></span>
+    <div id="qrPop" class="qrpop" hidden>
+      <div class="qhead">
+        <div class="qt">QUÉT KẾT NỐI REMOTE</div>
+        <span id="port" class="portpill"></span>
+      </div>
+      <div id="qrBody">
+        <img id="qr" alt="QR" hidden>
+        <div id="qrCap" class="qcap">Mở camera quét để điều khiển</div>
+        <div id="qrUrl" class="muted qurl"></div>
+      </div>
+      <div class="qfoot"><span class="ic gdot" data-i="dot"></span><span id="qual" class="muted ell"></span></div>
+    </div>
   </header>
   <div class="body">
-    <aside class="left">
-      <div class="lscroll scroll">
-      <div class="card qrcard">
-        <div class="qhead">
-          <div class="qt">QUÉT KẾT NỐI<br>REMOTE</div>
-          <span id="port" class="portpill"></span>
-          <button id="qrToggle" class="mini nav">Ẩn</button>
-        </div>
-        <div id="qrBody">
-          <img id="qr" alt="QR" hidden>
-          <div id="qrCap" class="qcap">Mở camera quét để điều khiển</div>
-          <div id="qrUrl" class="muted qurl"></div>
-        </div>
-      </div>
-      <button id="addCat" class="dashed nav"><span class="ic" data-i="plus"></span>Tạo Thể Loại Mới</button>
+    <div hidden>
       <div id="quickBtns">
       <button id="favBtn" class="favbtn nav"><span class="ic" data-i="heart"></span>Yêu Thích</button>
       <button id="bnrBtn" class="favbtn bnrbtn nav" title="Gõ chữ chào mừng hiện lên màn hình lớn (phím W: hiện/ẩn nhanh)"><span class="ic" data-i="banner"></span><span id="bnrLbl">Chữ Chào Mừng</span></button>
@@ -51,27 +53,35 @@
       <button id="deckBtn" class="favbtn deckbtn nav" title="Kịch bản cho từng buổi tiệc: mỗi bộ bài là một buổi, mỗi lá bài là một việc cần làm (đón khách, cắt bánh...)"><span class="ic" data-i="deck"></span>Kịch Bản</button>
       <button id="dlBtn" class="favbtn dlbtn nav" title="Tải sẵn bài YouTube về máy để phát không cần mạng: chọn Yêu thích, hàng đợi hoặc cả một bộ bài"><span class="ic" data-i="download"></span>Tải Sẵn Về Máy</button>
       </div>
-      <div class="lbl">DANH MỤC ÂM NHẠC</div>
-      <div id="cats" class="scroll"></div>
-      </div>
-      <div class="foot">
-        <span class="ic gdot" data-i="dot"></span><span id="qual" class="muted ell"></span>
-        <button id="gear" class="gear nav"><span class="ic" data-i="gear"></span>Cài đặt</button>
-      </div>
-    </aside>
-
+    </div>
     <section class="center">
       <div class="sbar">
         <button id="mic" class="micbtn nav" title="Tìm bằng giọng nói"><span class="ic" data-i="mic"></span></button>
         <div id="sfield" class="sfield">
           <span class="ic" data-i="search"></span>
           <input id="q" class="nav" type="text" placeholder="Nhập tên bài hát, ca sĩ hoặc dán link YouTube" autocomplete="off" spellcheck="false">
-          <span class="hint"><kbd>Enter</kbd>Chọn</span><span class="hint"><kbd>Shift</kbd>Ưu tiên</span>
+          <div class="catwrap">
+            <button id="catBtn" class="catbtn nav" aria-expanded="false" title="Danh mục âm nhạc và tạo thể loại mới"><span class="ic" data-i="folder"></span>Danh Mục<span class="ic car" data-i="caret"></span></button>
+            <div id="catMenu" class="catmenu" hidden>
+              <button id="addCat" class="dashed nav"><span class="ic" data-i="plus"></span>Tạo Thể Loại Mới</button>
+              <div class="lbl">DANH MỤC ÂM NHẠC</div>
+              <div id="cats" class="scroll"></div>
+            </div>
+          </div>
         </div>
         <button id="karaoke" class="karaoke nav"><i></i><span>Karaoke</span></button>
       </div>
-      <div id="status" class="status"></div>
-      <div id="grid" class="scroll grid"></div>
+      <div class="cbody">
+        <div class="results">
+          <div id="status" class="status"></div>
+          <div id="grid" class="scroll grid"></div>
+        </div>
+        <div class="card queue">
+          <div class="qh"><b>HÀNG ĐỢI TIẾP THEO</b><span id="qcount" class="pill">0 bài</span></div>
+          <div id="qlist" class="scroll"></div>
+          <div class="qf"><span id="qtotal" class="muted ell"></span><button id="addSong" class="link nav">Thêm bài hát</button></div>
+        </div>
+      </div>
     </section>
 
     <aside class="right">
@@ -94,14 +104,26 @@
           <button id="b-play" class="cb red nav"><span class="ic" id="playIc" data-i="pause"></span><em>Phát / Dừng</em></button>
           <button id="b-next" class="cb nav"><span class="ic" data-i="next"></span><em>Bài tiếp</em></button>
           <button id="b-fwd" class="cb nav"><span class="ic" data-i="ff"></span><em>Tua 10s</em></button>
-          <button id="b-voldn" class="cb sm nav" title="Giảm âm lượng (phím -)"><span class="ic" data-i="voldn"></span><em>Giảm âm lượng (-)</em></button>
-          <button id="b-volup" class="cb sm nav" title="Tăng âm lượng (phím +)"><span class="ic" data-i="volup"></span><em>Tăng âm lượng (+)</em></button>
+          <button id="b-replay" class="cb nav" title="Phát lại bài đang phát từ đầu"><span class="ic" data-i="replay"></span><em>Phát lại</em></button>
+          <button id="b-repeat" class="cb tog nav" title="Lặp lại: hết bài thì phát lại chính bài này"><span class="ic" data-i="repeat1"></span><em id="repLbl">Lặp lại</em></button>
         </div>
-      </div>
-      <div class="card queue">
-        <div class="qh"><b>HÀNG ĐỢI TIẾP THEO</b><span id="qcount" class="pill">0 bài</span></div>
-        <div id="qlist" class="scroll"></div>
-        <div class="qf"><span id="qtotal" class="muted ell"></span><button id="addSong" class="link nav">Thêm bài hát</button></div>
+        <div class="volrow">
+          <button id="b-voldn" class="cb vsm nav" title="Giảm âm lượng (phím -)"><span class="ic" data-i="voldn"></span><em>Giảm âm lượng (-)</em></button>
+          <input id="volRange" class="vrange nav" type="range" min="0" max="100" step="1" value="100" aria-label="Âm lượng">
+          <button id="b-volup" class="cb vsm nav" title="Tăng âm lượng (phím +)"><span class="ic" data-i="volup"></span><em>Tăng âm lượng (+)</em></button>
+        </div>
+        <div class="rowlbl"><span>VIDEO / HÌNH ẢNH CHỜ</span><span id="bgName" class="ell"></span></div>
+        <div class="btnrow">
+          <button id="bgVid" class="rbtn nav" title="Chọn video chờ (tắt tiếng, lặp lại)">VIDEO</button>
+          <button id="bgImg" class="rbtn nav" title="Chọn hình ảnh chờ">HÌNH ẢNH</button>
+          <button id="bgOff" class="rbtn nav" title="Bỏ video/hình chờ, về nền mặc định">ĐẶT LẠI</button>
+        </div>
+        <div class="rowlbl"><span>ĐIỀU KHIỂN LED VÀ THIẾT BỊ</span></div>
+        <div class="btnrow">
+          <button id="scrOn" class="rbtn nav" title="Mở xuất ra TV/LED và hiện lại hình đang phát">MỞ TV/LED</button>
+          <button id="scrStandby" class="rbtn nav" title="TV/LED hiện video/hình chờ, nhạc vẫn phát">MÀN HÌNH CHỜ</button>
+          <button id="scrOff" class="rbtn nav" title="TV/LED tối đen, nhạc vẫn phát">TẮT MÀN HÌNH</button>
+        </div>
       </div>
     </aside>
   </div>

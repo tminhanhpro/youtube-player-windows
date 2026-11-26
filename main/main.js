@@ -67,12 +67,24 @@ function bgPayload() {
   return b ? { type: b.type, url: proxy.localFile(b.file, bgMimeOf(b.file)) } : null;
 }
 /** Đổi nền: lưu lại rồi báo cả cửa sổ laptop lẫn màn hình lớn (đang phát nhạc thì đổi ngay). */
+// Chế độ màn hình TV/LED: LIVE (hiện hình đang phát) | STANDBY (hiện video/hình chờ) | BLACK (tối đen). Nhạc luôn tiếp tục phát.
+let screenMode = 'LIVE';
+function screenCmd() { return { type: 'screen', mode: screenMode, bg: bgPayload() }; }
+function screenApply(mode) {
+  screenMode = mode === 'STANDBY' || mode === 'BLACK' ? mode : 'LIVE';
+  tv.broadcastPlayer(screenCmd());
+  broadcast('screen', screenMode);
+  return screenMode;
+}
 function bgApply(file) {
   store.set('bgFile', file || '');
   const bg = bgPayload();
   tv.broadcastPlayer({ type: 'bg', bg });
   if (tv.lastLoad && tv.lastLoad.src && tv.lastLoad.src.audioOnly) tv.lastLoad = { ...tv.lastLoad, bg };
-  return bgInfo();
+  if (screenMode === 'STANDBY') tv.broadcastPlayer(screenCmd()); // đang hiện màn hình chờ: đổi theo nền mới
+  const info = bgInfo();
+  broadcast('bg', info);
+  return info;
 }
 function enqueueLocal(paths, priority) {
   const res = { played: 0, added: 0, dup: 0, full: 0, bad: 0 };
@@ -226,10 +238,12 @@ const methods = {
   pause: () => ctl.pause(),
   resume: () => ctl.resume(),
   restart: () => ctl.restart(),
+  setRepeat: on => ctl.setRepeat(on),
   seekTo: (p, d) => ctl.seekTo(p, d),
   playNow: id => ctl.playNow(id),
   remove: id => ctl.remove(id),
   prioritize: id => ctl.prioritize(id),
+  moveItem: (id, delta) => { const i = ctl.findQ(id); ctl.reorder(id, i + (Number(delta) < 0 ? -1 : 1)); },
   setVolume: v => ctl.setVolumeAbs(v),
   setDuck: (on, momentary) => ctl.setDuck(on, !!momentary),
   fadeOut: () => ctl.fadeOut(),
@@ -261,6 +275,8 @@ const methods = {
   },
   bgUse: p => (typeof p === 'string' && path.isAbsolute(p) && bgKindOf(p) ? bgApply(p) : bgInfo()),
   bgClear: () => bgApply(''),
+  getScreen: () => screenMode,
+  setScreen: m => screenApply(m),
   // chọn một file nhạc/video rồi phát ngay (không cần thêm vào thư viện)
   localPlayPick: async () => {
     const r = await dialog.showOpenDialog(win, {
@@ -423,6 +439,16 @@ const methods = {
     saveFavs(list);
     return true;
   },
+  favMove: (id, delta) => {
+    const list = Favs.load(store), i = list.findIndex(x => x.videoId === id);
+    if (i < 0) return false;
+    const j = i + (Number(delta) < 0 ? -1 : 1);
+    if (j < 0 || j >= list.length) return false;
+    [list[i], list[j]] = [list[j], list[i]];
+    saveFavs(list);
+    return true;
+  },
+  playHitNow: h => ctl.playYoutubeNow(String(h.videoId), String(h.title || ''), String(h.channel || ''), Number(h.durationSec) | 0),
   favRemove: id => { const list = Favs.load(store).filter(x => x.videoId !== id); saveFavs(list); return true; }
 };
 
@@ -527,6 +553,7 @@ app.whenReady().then(async () => {
   ipcMain.on('player-ready', e => {
     if (win && e.sender.id === win.webContents.id) ctl.attachPlayer(true);
     tv.onPlayerReady(e.sender.id);
+    if (screenMode !== 'LIVE') { try { e.sender.send('player', screenCmd()); } catch (x) { /* ignore */ } } // cửa sổ vừa mở (vd. mới cắm HDMI) giữ đúng chế độ màn hình
     // cửa sổ vừa mở (vd. mới cắm HDMI) phải hiện đúng chữ chào mừng đang bật
     const b = banners.current();
     if (b) { try { e.sender.send('banner', b); } catch (x) { /* ignore */ } }
