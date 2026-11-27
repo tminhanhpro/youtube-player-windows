@@ -483,7 +483,7 @@ class KaraokeServer {
     const ctl = this.ctl;
     const text = (q.get('q') || '').trim();
     if (!text || text.length > 200) throw new ApiError(400, 'INVALID_QUERY', 'Query must be 1-200 chars');
-    const page = Math.max(0, Math.min(20, parseInt(q.get('page') || '0', 10) || 0));
+    const page = Math.max(0, Math.min(2000, parseInt(q.get('page') || '0', 10) || 0));
     const chan = (q.get('channel') || '').trim().slice(0, 100);
     if (page === 0) ctl.searchBegin(text, 'remote'); else ctl.searchLoadingMore();
     let r;

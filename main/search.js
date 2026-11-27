@@ -139,7 +139,8 @@ async function search(query, page, karaoke) {
   const low = q.toLowerCase();
   if (karaoke && !low.includes('karaoke') && !low.includes('beat')) q += ' karaoke';
   let s = sessions.get(q);
-  if (!s || Date.now() - s.created > 5 * 60000) {
+  if (s && Date.now() - s.created <= 30 * 60000) s.created = Date.now();   // dùng đến đâu gia hạn đến đó
+  if (!s || Date.now() - s.created > 30 * 60000) {
     s = { created: Date.now(), pages: [], token: null, done: false, started: false, chain: Promise.resolve(), html: false, ver: null };
     sessions.set(q, s);
     if (sessions.size > 30) sessions.delete(sessions.keys().next().value);

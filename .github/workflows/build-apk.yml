@@ -1,0 +1,52 @@
+name: Build APK (Android)
+
+# Tu dong build moi khi day (push) code len GitHub. Co the bam Actions -> "Build APK (Android)" -> Run workflow de build thu cong.
+on:
+  push:
+    branches: ["**"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Lay ma nguon
+        uses: actions/checkout@v4
+
+      - name: Cai Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Cai Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Build APK
+        env:
+          APK_VERSION_CODE: ${{ github.run_number }}
+          APK_VERSION_NAME: 1.${{ github.run_number }}.0
+        run: gradle -p android assembleDebug --no-daemon --stacktrace
+
+      - name: Doi ten file APK
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk youtube-player-remote.apk
+
+      - name: Luu file APK (tai tu muc Artifacts)
+        uses: actions/upload-artifact@v4
+        with:
+          name: youtube-player-remote-apk
+          path: youtube-player-remote.apk
+
+      - name: Tao ban phat hanh (tai truc tiep tu muc Releases)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-v1.${{ github.run_number }}
+          name: Youtube Player Remote (APK) v1.${{ github.run_number }}
+          body: Tai file youtube-player-remote.apk ben duoi, cai len dien thoai Android (bat "Cai ung dung tu nguon khong xac dinh" neu may hoi).
+          files: youtube-player-remote.apk

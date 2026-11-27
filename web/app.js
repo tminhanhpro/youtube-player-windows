@@ -9,7 +9,7 @@
       add: 'Add', added: 'Added: ', in_queue: 'In queue', dl_have: 'Saved', play_next: 'Play next', play_now: 'Play now',
       prioritize: 'Move to top', remove: 'Remove', move_up: 'Move up', move_down: 'Move down', close: 'Close',
       now_playing: 'Now playing', next: 'Next: ', nothing: 'Nothing is waiting. The TV plays suggested songs.',
-      no_results: 'No results', recent: 'Recent searches', loading: 'Loading…',
+      no_results: 'No results', load_more: 'Load more  ⌄', retry: 'Connection problem — tap to retry  ⟳', recent: 'Recent searches', loading: 'Loading…',
       paste_title: 'Add a YouTube link', paste_ph: 'Paste YouTube link or video ID', title_opt: 'Song title (optional)',
       cancel: 'Cancel', menu: 'Settings', language: 'Language', device: 'Your device name',
       karaoke_mode: 'Karaoke mode (append "karaoke" to searches)', reset_pairing: 'Reset pairing',
@@ -52,7 +52,7 @@
       add: 'Thêm', added: 'Đã thêm: ', in_queue: 'Đã chọn', dl_have: 'Đã tải', play_next: 'Phát tiếp theo', play_now: 'Phát ngay',
       prioritize: 'Đưa lên đầu', remove: 'Xóa', move_up: 'Lên', move_down: 'Xuống', close: 'Đóng',
       now_playing: 'Đang phát', next: 'Tiếp theo: ', nothing: 'Chưa có bài nào chờ. TV đang phát bài gợi ý.',
-      no_results: 'Không có kết quả', recent: 'Tìm gần đây', loading: 'Đang tải…',
+      no_results: 'Không có kết quả', load_more: 'Tải thêm  ⌄', retry: 'Lỗi mạng — bấm để thử lại  ⟳', recent: 'Tìm gần đây', loading: 'Đang tải…',
       paste_title: 'Thêm link YouTube', paste_ph: 'Dán link YouTube hoặc mã video', title_opt: 'Tên bài (không bắt buộc)',
       cancel: 'Hủy', menu: 'Cài đặt', language: 'Ngôn ngữ', device: 'Tên điện thoại của bạn',
       karaoke_mode: 'Chế độ karaoke (tự thêm chữ "karaoke" khi tìm)', reset_pairing: 'Đặt lại ghép nối',
@@ -248,7 +248,8 @@
       $('results-status').textContent = results.length ? '' : t('no_results');
       showTab('search'); renderRecent();
     }
-    hasMore = !!ts.hasMore; page = ts.page + 1;
+    hasMore = !!ts.hasMore; page = ts.page + 1; loadFailed = false;
+    updateMore();
   }
 
   // TV doi che do karaoke -> dien thoai doi theo (TV tu tim lai, dien thoai chi cap nhat o tich)
@@ -835,7 +836,7 @@
   }
 
   // ------------------------------------------------------------ search
-  var reqId = 0, page = 0, hasMore = false, loading = false, curQuery = '', curRaw = '', results = [];
+  var reqId = 0, page = 0, hasMore = false, loading = false, loadFailed = false, curQuery = '', curRaw = '', results = [];
   var searchMode = pref('smode') || 'song';          // song | channel | lyrics
   var genre = pref('genre') || '';                   // tu khoa the loai ('' = tat ca)
   var recentOpen = pref('recentOpen') === '1';
@@ -971,7 +972,7 @@
 
   function showLinkCard(q) {
     var my = ++reqId;
-    var box = $('results'); box.textContent = ''; results = []; hasMore = false; loading = false;
+    var box = $('results'); box.textContent = ''; results = []; hasMore = false; loading = false; loadFailed = false; updateMore();
     $('results-status').textContent = t('link_loading');
     api('POST', '/api/resolve-url', { url: q }).then(function (it) {
       if (my !== reqId) return;
@@ -999,12 +1000,14 @@
     q = q.trim();
     if (q && reset && ytLink(q)) { showLinkCard(q); return; }
     var eq = effQuery(q);
-    if (!eq) { ++reqId; results = []; curQuery = ''; curRaw = ''; hasMore = false; loading = false; $('results').textContent = ''; $('results-status').textContent = ''; renderRecent(); return; }
-    if (reset) { page = 0; results = []; hasMore = false; curQuery = eq; curRaw = q; $('results').textContent = ''; if (q) pushRecentLater(q); }
+    if (!eq) { ++reqId; results = []; curQuery = ''; curRaw = ''; hasMore = false; loading = false; loadFailed = false; $('results').textContent = ''; $('results-status').textContent = ''; updateMore(); renderRecent(); return; }
+    if (reset) { page = 0; results = []; hasMore = false; loadFailed = false; curQuery = eq; curRaw = q; $('results').textContent = ''; if (q) pushRecentLater(q); }
+    loadFailed = false;
     var my = ++reqId;
     loading = true;
     $('results-status').textContent = '';
     var sk = el('li', 'skeleton'); sk.id = 'sk'; $('results').appendChild(sk);
+    updateMore();
     api('GET', '/api/search?q=' + encodeURIComponent(eq) + '&page=' + page + '&karaoke=' + (karaoke ? 1 : 0) + ((searchMode === 'channel' && q) ? '&channel=' + encodeURIComponent(q) : ''))
       .then(function (r) {
         if (my !== reqId) return;
@@ -1014,10 +1017,14 @@
         r.results.forEach(function (it) { results.push(it); appendResult(it); });
         if (!results.length) $('results-status').textContent = t('no_results');
         page = r.page + 1;
+        updateMore(); setTimeout(checkMore, 80);          // chua day khung thi tai tiep ngay
       }).catch(function (e) {
         if (my !== reqId) return;
-        removeSk(); loading = false; hasMore = false;
-        $('results-status').textContent = errText(e);
+        removeSk(); loading = false;
+        if (page > 0 && results.length) { hasMore = true; loadFailed = true; }   // loi giua chung: giu danh sach, cho bam thu lai
+        else hasMore = false;
+        $('results-status').textContent = loadFailed ? '' : errText(e);
+        updateMore();
       });
   }
   var recentTimer = null;
@@ -1067,14 +1074,35 @@
     renderRecent();
   }
 
-  // infinite scroll
-  var io = null;
+  // infinite scroll: IntersectionObserver + su kien cuon + kiem tra sau moi lan tai + nut mui ten xuong (du phong)
+  var io = null, scrollTick = false;
+  function updateMore() {
+    var b = $('more-btn'); if (!b) return;
+    var show = !!(hasMore && curQuery && results.length && !loading);
+    b.hidden = !show;
+    if (show) b.textContent = t(loadFailed ? 'retry' : 'load_more');
+  }
+  function checkMore() {
+    if (!hasMore || loading || loadFailed || !curQuery || $('view-search').hidden) return;
+    var s = $('sentinel'), m = document.querySelector('main');
+    if (!s || !m) return;
+    var r = s.getBoundingClientRect(), mr = m.getBoundingClientRect();
+    if (r.top < mr.bottom + 500) doSearch(curRaw, false);
+  }
   function setupScroll() {
-    if (!('IntersectionObserver' in window)) return;
-    io = new IntersectionObserver(function (entries) {
-      if (entries[0].isIntersecting && hasMore && !loading && curQuery) doSearch(curRaw, false);
-    }, { rootMargin: '300px' });
-    io.observe($('sentinel'));
+    var m = document.querySelector('main');
+    if ('IntersectionObserver' in window) {
+      io = new IntersectionObserver(function (entries) {
+        if (entries[0].isIntersecting) checkMore();
+      }, { rootMargin: '500px' });
+      io.observe($('sentinel'));
+    }
+    if (m) m.addEventListener('scroll', function () {
+      if (scrollTick) return; scrollTick = true;
+      requestAnimationFrame(function () { scrollTick = false; checkMore(); });
+    }, { passive: true });
+    window.addEventListener('resize', checkMore);
+    $('more-btn').addEventListener('click', function () { loadFailed = false; doSearch(curRaw, false); });
   }
 
   // ------------------------------------------------------------ tabs / sheets

@@ -267,7 +267,7 @@ function renderSearch() {
   const res = sv.results;
   const cols = Math.min(3, Math.max(1, cfg.gridCols || 3));
   const first = res[0] && res[0].videoId;
-  if (sv.query === shown.q && res.length === shown.n && first === shown.first && shown.cols === cols) return;
+  if (sv.query === shown.q && res.length === shown.n && first === shown.first && shown.cols === cols) { setTimeout(maybeMore, 50); return; }   // trang vừa tải không thêm bài mới: vẫn kiểm tra để tải tiếp
   const append = sv.query === shown.q && shown.n > 0 && res.length > shown.n && first === shown.first && shown.cols === cols;
   const g = $('grid');
   let fIdx = [...g.children].indexOf(document.activeElement);
@@ -278,10 +278,11 @@ function renderSearch() {
   // nếu chưa đầy khung thì tải thêm
   setTimeout(maybeMore, 50);
 }
-function maybeMore() {
+function maybeMore(ev) {
   const g = $('grid');
   if (favMode || search.loading || !search.hasMore || !search.query) return;
-  if (g.scrollHeight - g.scrollTop - g.clientHeight < 500) bridge.call('tvLoadMore');
+  if (search.error && !(ev && ev.type === 'scroll')) return;   // lỗi mạng: chỉ thử lại khi người dùng cuộn, không tự dồn dập
+  if (g.scrollHeight - g.scrollTop - g.clientHeight < 600) bridge.call('tvLoadMore');
 }
 $('grid').addEventListener('scroll', maybeMore);
 

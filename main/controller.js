@@ -1,4 +1,5 @@
 'use strict';
+const SEARCH_CAP = 5000;
 const { EventEmitter } = require('events');
 const fs = require('fs');
 const path = require('path');
@@ -115,19 +116,20 @@ class Controller extends EventEmitter {
   searchDone(q, source, page, hits, hasMore) {
     const o = this.search;
     let list = hits;
-    if (page > 0 && o.query === q) list = o.results.concat(hits.filter(h => !o.results.some(x => x.videoId === h.videoId)));
-    this.search = { version: o.version + 1, query: q, source, results: list.slice(0, 300), hasMore: hasMore && list.length < 300, page, loading: false, error: null };
+    if (page > 0 && o.query === q) { const have = new Set(o.results.map(x => x.videoId)); list = o.results.concat(hits.filter(h => !have.has(h.videoId))); }
+    // Cuộn kiểu YouTube: không giới hạn thực tế (trần 5000 bài chỉ để giữ app nhẹ)
+    this.search = { version: o.version + 1, query: q, source, results: list.slice(0, SEARCH_CAP), hasMore: hasMore && list.length < SEARCH_CAP, page, loading: false, error: null };
     this.emit('search', this.search);
   }
   /** Đặt cả danh sách kết quả một lượt (dùng cho "tất cả video của kênh": đổ dần về, không giới hạn 300 bài như tìm thường). */
   searchSet(q, source, list, loading, cap) {
     const o = this.search;
-    this.search = { version: o.version + 1, query: q, source, results: list.slice(0, cap || 300), hasMore: false, page: 0, loading: !!loading, error: null };
+    this.search = { version: o.version + 1, query: q, source, results: list.slice(0, cap || SEARCH_CAP), hasMore: false, page: 0, loading: !!loading, error: null };
     this.emit('search', this.search);
   }
   searchFail(q, source, msg) {
     const o = this.search;
-    this.search = { version: o.version + 1, query: q, source, results: o.query === q ? o.results : [], hasMore: false, page: o.page, loading: false, error: msg };
+    this.search = { version: o.version + 1, query: q, source, results: o.query === q ? o.results : [], hasMore: o.query === q && o.results.length > 0 ? o.hasMore : false, page: o.page, loading: false, error: msg };
     this.emit('search', this.search);
   }
   async runSearch(q, page, source) {

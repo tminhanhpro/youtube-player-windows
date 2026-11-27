@@ -46,6 +46,10 @@ main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .view{padding:6px 10px 12px}
 .list{list-style:none;margin:0;padding:0}
 .status{padding:16px;text-align:center;color:var(--muted)}
+.more-btn{display:block;width:100%;min-height:64px;margin:6px 0 18px;border-radius:12px;border:2px solid var(--accent);background:var(--card);color:var(--accent);font-weight:800;font-size:calc(18px * var(--fs));cursor:pointer}
+.more-btn[hidden]{display:none}
+.more-btn:active{background:var(--line)}
+#sentinel{height:1px}
 .recent-wrap{display:flex;align-items:flex-start;gap:8px;padding:8px 0}
 .recent{flex:1;min-width:0;display:flex;flex-wrap:wrap;gap:8px;padding:0;max-height:40px;overflow:hidden}
 .recent.open{max-height:none}

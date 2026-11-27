@@ -181,7 +181,7 @@ async function tvLoadMore() {
   }
 }
 function searchPayload(s) {
-  return { version: s.version, query: s.query, source: s.source, results: s.results.slice(0, chanMode && s.source === 'tv' && s.query === chanMode.q ? CHAN_CAP : 300), hasMore: s.hasMore, page: s.page, loading: s.loading, error: s.error,
+  return { version: s.version, query: s.query, source: s.source, results: s.results.slice(0, chanMode && s.source === 'tv' && s.query === chanMode.q ? CHAN_CAP : 5000), hasMore: s.hasMore, page: s.page, loading: s.loading, error: s.error,
     channel: chanMode && s.source === 'tv' && s.query === chanMode.q ? chanMode.name : '' };
 }
 function saveFavs(list) { Favs.save(store, list); ctl.bumpFavVersion(); ctl.emit('favs'); }

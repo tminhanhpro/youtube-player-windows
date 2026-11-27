@@ -1,0 +1,31 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'vn.savify.youtubeplayer.remote'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'vn.savify.youtubeplayer.remote'
+        minSdk 24
+        targetSdk 34
+        versionCode (System.getenv('APK_VERSION_CODE') ?: '1').toInteger()
+        versionName System.getenv('APK_VERSION_NAME') ?: '1.0.0'
+    }
+
+    // Ký bằng khoá cố định (android/debug.keystore) để bản mới luôn cài đè được bản cũ
+    signingConfigs {
+        debug {
+            storeFile file('../debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+    }
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+        }
+    }
+}
