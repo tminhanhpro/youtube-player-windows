@@ -119,6 +119,12 @@ class Controller extends EventEmitter {
     this.search = { version: o.version + 1, query: q, source, results: list.slice(0, 300), hasMore: hasMore && list.length < 300, page, loading: false, error: null };
     this.emit('search', this.search);
   }
+  /** Đặt cả danh sách kết quả một lượt (dùng cho "tất cả video của kênh": đổ dần về, không giới hạn 300 bài như tìm thường). */
+  searchSet(q, source, list, loading, cap) {
+    const o = this.search;
+    this.search = { version: o.version + 1, query: q, source, results: list.slice(0, cap || 300), hasMore: false, page: 0, loading: !!loading, error: null };
+    this.emit('search', this.search);
+  }
   searchFail(q, source, msg) {
     const o = this.search;
     this.search = { version: o.version + 1, query: q, source, results: o.query === q ? o.results : [], hasMore: false, page: o.page, loading: false, error: msg };

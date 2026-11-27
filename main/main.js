@@ -12,6 +12,7 @@ const { lanIp, newToken, netInfo, parseVideoId, clean } = require('./util');
 const searchSvc = require('./search');
 const resolver = require('./resolver');
 const chanSearch = require('./chansearch');
+const chanVideos = require('./chanvideos');
 const REACT_IDS = require('./react-ids');
 const { StreamProxy } = require('./proxy');
 const { TvManager } = require('./tv');
@@ -128,6 +129,7 @@ let searchTok = 0;
 let chanMode = null;   // { q, name }: khi kết quả trên máy tính đang là "bài của một kênh" (không tải thêm, không lẫn bài kênh khác)
 async function tvSearch(q) {
   const t = ++searchTok;
+  stopChanJob();
   chanMode = null;
   ctl.searchBegin(q, 'tv');
   try {
@@ -137,15 +139,33 @@ async function tvSearch(q) {
     if (t === searchTok) ctl.searchFail(q, 'tv', String(e && e.message || 'lỗi mạng').slice(0, 100));
   }
 }
-async function tvSearchChannel(name) {
-  const t = ++searchTok;
+let chanJob = null;   // việc đang tải danh sách video của kênh (yt-dlp): dừng khi người dùng tìm cái khác
+function stopChanJob() { if (chanJob) { try { chanJob.kill(); } catch (e) { /* ignore */ } chanJob = null; } }
+process.on('exit', stopChanJob);
+const CHAN_CAP = chanVideos.MAX_VIDEOS;
+// "Xem bài của kênh này": tải TẤT CẢ video của kênh (đổ dần về lưới). Không lấy được link kênh / yt-dlp lỗi thì lọc theo tên kênh từ kết quả tìm kiếm như cũ.
+async function tvSearchChannel(name, videoId) {
+  const t = ++searchTok, alive = () => t === searchTok;
+  stopChanJob();
   chanMode = { q: name, name };
   ctl.searchBegin(name, 'tv');
   try {
-    const hits = await chanSearch.searchByChannel(p => ctl.runSearch(name, p, 'tv'), name);
-    if (t === searchTok) ctl.searchDone(name, 'tv', 0, hits, false);
+    const url = videoId ? await channelUrlOf(videoId) : null;
+    if (!alive()) return;
+    let list = [];
+    if (url) {
+      try {
+        const job = chanVideos.listChannelVideos(url, all => { if (alive()) ctl.searchSet(name, 'tv', all, true, CHAN_CAP); }, { channelName: name });
+        chanJob = job;
+        list = await job.done;
+        if (chanJob === job) chanJob = null;
+      } catch (e) { list = []; resolver.log('KÊNH tải danh sách video lỗi: ' + (e && e.message)); }
+    }
+    if (!alive()) return;
+    if (!list.length) list = await chanSearch.searchByChannel(p => ctl.runSearch(name, p, 'tv'), name);
+    if (alive()) ctl.searchSet(name, 'tv', list, false, CHAN_CAP);
   } catch (e) {
-    if (t === searchTok) ctl.searchFail(name, 'tv', String(e && e.message || 'lỗi mạng').slice(0, 100));
+    if (alive()) ctl.searchFail(name, 'tv', String(e && e.message || 'lỗi mạng').slice(0, 100));
   }
 }
 async function tvLoadMore() {
@@ -161,7 +181,7 @@ async function tvLoadMore() {
   }
 }
 function searchPayload(s) {
-  return { version: s.version, query: s.query, source: s.source, results: s.results.slice(0, 300), hasMore: s.hasMore, page: s.page, loading: s.loading, error: s.error,
+  return { version: s.version, query: s.query, source: s.source, results: s.results.slice(0, chanMode && s.source === 'tv' && s.query === chanMode.q ? CHAN_CAP : 300), hasMore: s.hasMore, page: s.page, loading: s.loading, error: s.error,
     channel: chanMode && s.source === 'tv' && s.query === chanMode.q ? chanMode.name : '' };
 }
 function saveFavs(list) { Favs.save(store, list); ctl.bumpFavVersion(); ctl.emit('favs'); }
@@ -200,6 +220,13 @@ function buildReport() {
   return { text: maskIp(head.concat(lines.slice(-60)).join('\n')) || '(chưa có nhật ký)', path: resolver.logPath() };
 }
 const chanUrlCache = new Map();
+/** Link kênh của một bài (nhớ lại theo bài để lần sau có ngay). null nếu không lấy được. */
+async function channelUrlOf(id) {
+  let url = chanUrlCache.get(id) || null;
+  if (!url) { try { url = chanSearch.safeChannelUrl(await resolver.channelUrl(id)); } catch (e) { url = null; } }
+  if (url) { chanUrlCache.set(id, url); if (chanUrlCache.size > 200) chanUrlCache.delete(chanUrlCache.keys().next().value); }
+  return url;
+}
 const methods = {
   getReport: () => buildReport(),
   netTest: async () => {
@@ -420,14 +447,12 @@ const methods = {
   // tìm kiếm trên máy tính
   tvSearch: q => { q = clean(q, 200); if (q) tvSearch(q); },
   tvLoadMore: () => { tvLoadMore(); },
-  tvSearchChannel: name => { name = clean(name, 100); if (name) tvSearchChannel(name); },
+  tvSearchChannel: (name, videoId) => { name = clean(name, 100); if (name) tvSearchChannel(name, parseVideoId(String(videoId || '')) || ''); },
   // mở trang kênh của bài hát bằng trình duyệt (nhớ link theo bài để lần sau mở ngay; không lấy được thì mở trang tìm kênh)
   openChannel: async h => {
     const id = parseVideoId(h && h.videoId || '');
     if (!id) return { ok: false };
-    let url = chanUrlCache.get(id) || null;
-    if (!url) { try { url = chanSearch.safeChannelUrl(await resolver.channelUrl(id)); } catch (e) { url = null; } }
-    if (url) { chanUrlCache.set(id, url); if (chanUrlCache.size > 200) chanUrlCache.delete(chanUrlCache.keys().next().value); }
+    let url = await channelUrlOf(id);
     const real = !!url;
     if (!url) url = chanSearch.channelSearchUrl(h && h.channel);
     try { await shell.openExternal(url); } catch (e) { return { ok: false }; }

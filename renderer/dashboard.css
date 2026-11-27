@@ -68,6 +68,7 @@ input{font:inherit;color:inherit}
 .sfield:focus-within{background:var(--panel);border-color:var(--cyan)}.sfield .ic{font-size:1.875rem}
 .sfield input{flex:1;min-width:0;background:none;border:0;outline:0;font-size:1.625rem;padding:0 0.5rem}.sfield input::placeholder{color:var(--ph)}
 .gobtn{flex:none;height:3rem;padding:0 1.375rem;border-radius:1.5rem;background:var(--panel2);border:0.125rem solid var(--border);font-size:1.3125rem;font-weight:700;white-space:nowrap}.gobtn:hover{border-color:var(--cyan)}.gobtn:focus-visible{box-shadow:0 0 0 0.1875rem var(--cyan)}
+.clrbtn{padding:0 1.125rem;color:var(--muted);background:none}.clrbtn:hover{color:var(--fg);border-color:var(--red)}
 .catwrap{position:relative;flex:none;margin-left:0.375rem}
 .catbtn{display:flex;align-items:center;gap:0.5rem;height:3rem;padding:0 0.875rem 0 1rem;border-radius:1.5rem;background:var(--red);border:0.125rem solid #ffffff55;font-size:1.3125rem;font-weight:700;white-space:nowrap}
 .catbtn .ic{font-size:1.5rem}.catbtn .car{font-size:1.625rem;margin-left:-0.125rem}.catbtn:hover{filter:brightness(1.12)}.catbtn[aria-expanded=true]{background:#ffb300;color:#1a1a1a;border-color:#fff}
@@ -326,3 +327,14 @@ input{font:inherit;color:inherit}
 :root[data-theme=light] .dotic{color:#9aa3b5}:root[data-theme=light] .dotic.on{color:var(--green)}
 :root[data-theme=light] .cardv.fav .th .ic.h{filter:drop-shadow(0 0 0.1875rem #fff)}
 :root[data-theme=light] .fxb:hover,:root[data-theme=light] .fxb:focus-visible{background:var(--hov)}
+/* menu chuột phải trên bài hát: nhỏ gọn, hiện ngay cạnh con trỏ */
+.ctxm{position:fixed;z-index:600;width:21.25rem;padding:0.5rem;background:var(--pop);border:0.125rem solid var(--border);border-radius:1.125rem;box-shadow:0 1.125rem 3rem var(--shd);outline:0;transform-origin:top left;animation:ctxin .12s ease-out}
+@keyframes ctxin{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:none}}
+.ctxh{padding:0.5rem 0.75rem 0.625rem;margin-bottom:0.375rem;border-bottom:0.125rem solid var(--border)}
+.ctxh .t{font-size:1.1875rem;font-weight:700;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.ctxh .c{margin-top:0.1875rem;font-size:1rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ctxi{display:flex;align-items:center;gap:0.75rem;width:100%;height:2.875rem;padding:0 0.75rem;border-radius:0.75rem;font-size:1.1875rem;text-align:left;white-space:nowrap}
+.ctxi .ic{font-size:1.5rem;color:var(--muted)}.ctxi .tx{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.ctxi:hover,.ctxi:focus-visible{background:var(--hov2);outline:0}.ctxi:hover .ic,.ctxi:focus-visible .ic{color:var(--cyan)}.ctxi:focus-visible{box-shadow:0 0 0 0.125rem var(--cyan)}
+.ctxi.fav .ic{color:var(--pink)}
+.ctxsep{height:0.125rem;margin:0.375rem 0.5rem;background:var(--border)}

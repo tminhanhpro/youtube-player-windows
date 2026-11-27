@@ -1,5 +1,5 @@
 'use strict';
-// Menu chuột phải trên thẻ bài hát (máy tính): thêm/xoá Yêu thích, Xem bài của kênh này, Phát ngay, Thêm vào hàng đợi, Mở trang kênh trên YouTube.
+// Menu chuột phải trên thẻ bài hát (máy tính, hiện ngay cạnh con trỏ, bấm ra ngoài thì ẩn): Phát ngay, Thêm vào hàng đợi, Yêu thích, Xem bài của kênh này, Mở trang kênh trên YouTube; nút XOÁ ở ô tìm kiếm.
 // Phần 1: lọc theo kênh + link kênh (không cần mạng). Phần 2: cửa sổ máy tính trong Chromium với main-process giả.
 const path = require('path'), assert = require('assert');
 const CS = require('../main/chansearch');
@@ -62,69 +62,102 @@ const CS = require('../main/chansearch');
   await p.goto('file://' + path.join(__dirname, '..', 'renderer', 'dashboard.html')); await p.waitForTimeout(900);
   const calls = () => p.evaluate(() => window.__calls.filter(c => !['initial', 'dlIds', 'bannerInit', 'sfxList', 'tvLoadMore'].includes(c[0])));
   const reset = () => p.evaluate(() => { window.__calls.length = 0; });
-  const menu = p.locator('.dlg.cmenu');
-  const labels = () => p.locator('.dlg.cmenu .dlist button').allTextContents();
+  const menu = p.locator('.ctxm');
+  const labels = () => p.locator('.ctxm .ctxi .tx').allTextContents();
+  const box = () => menu.boundingBox();
   const cardA = p.locator('.cardv[data-vid="vidAAAAAAA1"]'), cardB = p.locator('.cardv[data-vid="vidBBBBBBB2"]');
-  const EXPECT = ['Thêm vào Yêu thích', 'Xem bài của kênh này', 'Phát ngay', 'Thêm vào hàng đợi', 'Mở trang kênh trên YouTube'];
-  const pick = async t => { await p.locator('.dlg.cmenu .dlist button', { hasText: t }).click(); await p.waitForTimeout(150); };
+  const EXPECT = ['Phát ngay', 'Thêm vào hàng đợi', 'Thêm vào Yêu thích', 'Xem bài của kênh này', 'Mở trang kênh trên YouTube'];
+  const pick = async t => { await p.locator('.ctxm .ctxi', { hasText: t }).click(); await p.waitForTimeout(150); };
 
-  // 1) chuột phải mở menu đủ 5 mục đúng thứ tự, chưa làm gì cả
+  // 1) chuột phải: menu hiện NGAY CẠNH con trỏ (góc trên-trái sát con trỏ), đủ 5 mục đúng thứ tự, chưa làm gì cả
   await reset();
-  await cardA.click({ button: 'right' }); await p.waitForTimeout(200);
+  const cb = await cardA.boundingBox(), mx = cb.x + 40, my = cb.y + 40;
+  await p.mouse.move(mx, my); await p.mouse.click(mx, my, { button: 'right' }); await p.waitForTimeout(250);
   assert.equal(await menu.count(), 1, 'chuột phải mở menu');
+  assert.equal(await p.locator('.dlg').count(), 0, 'không còn hộp thoại giữa màn hình');
+  let mb = await box();
+  assert.ok(Math.abs(mb.x - (mx + 2)) <= 2 && Math.abs(mb.y - (my + 2)) <= 2, 'menu nằm sát con trỏ: ' + JSON.stringify(mb) + ' vs ' + mx + ',' + my);
   assert.deepStrictEqual(await labels(), EXPECT);
   assert.ok((await menu.textContent()).includes('Bài của Kênh Một') && (await menu.textContent()).includes('Kênh Một'));
-  assert.deepStrictEqual(await calls(), [], 'mở menu chưa gọi lệnh nào (không tự thả tim như trước)');
+  assert.deepStrictEqual(await calls(), [], 'mở menu chưa gọi lệnh nào');
+  assert.equal(await p.evaluate(() => document.activeElement.classList.contains('ctxi')), false, 'mở bằng chuột: không hiện khung chọn sẵn ở mục nào');
   await p.screenshot({ path: (process.env.SHOT_DIR || '/tmp') + '/card-menu.png' });
   // 2) Esc đóng, không làm gì
   await p.keyboard.press('Escape'); await p.waitForTimeout(150);
   assert.equal(await menu.count(), 0); assert.deepStrictEqual(await calls(), []);
-  // 3) bấm vào thẻ vẫn là thêm hàng đợi như cũ
+  // 3) sát mép phải/đáy cửa sổ: lật sang trái/lên trên, không tràn ra ngoài
+  await p.evaluate(() => { const c = document.querySelector('.cardv'); c.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: innerWidth - 4, clientY: innerHeight - 4, button: 2 })); }); await p.waitForTimeout(200);
+  mb = await box(); const vp = p.viewportSize();
+  assert.ok(mb.x >= 0 && mb.y >= 0 && mb.x + mb.width <= vp.width && mb.y + mb.height <= vp.height, 'không tràn khỏi cửa sổ: ' + JSON.stringify(mb));
+  assert.ok(mb.x + mb.width <= vp.width - 4 + 1 && mb.y + mb.height <= vp.height - 4 + 1, 'lật sang trái/lên trên so với con trỏ');
+  await p.keyboard.press('Escape'); await p.waitForTimeout(100);
+  // 4) bấm TRÁI ra ngoài menu: menu ẩn, và cú bấm đó KHÔNG làm gì (không thêm bài vào hàng đợi); bấm lần sau bình thường
+  await reset(); await cardA.click({ button: 'right' }); await p.waitForTimeout(150);
+  await p.mouse.click(cb.x + 6, cb.y + 6); await p.waitForTimeout(250);
+  assert.equal(await menu.count(), 0, 'bấm trái ra ngoài thì menu ẩn');
+  assert.deepStrictEqual(await calls(), [], 'cú bấm để ẩn menu không được thêm bài vào hàng đợi');
   await cardA.click(); await p.waitForTimeout(150);
-  assert.deepStrictEqual((await calls()).map(c => c[0]), ['addHit'], 'bấm trái vào thẻ vẫn thêm vào hàng đợi');
-  // 4) Thêm vào Yêu thích
+  assert.deepStrictEqual((await calls()).map(c => c[0]), ['addHit'], 'bấm trái vào thẻ sau đó vẫn thêm vào hàng đợi như cũ');
+  // bấm ra vùng trống (không phải thẻ) cũng ẩn
+  await cardA.click({ button: 'right' }); await p.waitForTimeout(150);
+  await p.mouse.click(5, 5); await p.waitForTimeout(150); assert.equal(await menu.count(), 0, 'bấm ra vùng trống thì ẩn');
+  // bấm vào chính menu (tiêu đề/khoảng trống) thì KHÔNG ẩn
+  await cardA.click({ button: 'right' }); await p.waitForTimeout(150);
+  await p.locator('.ctxm .ctxh').click(); await p.waitForTimeout(150); assert.equal(await menu.count(), 1, 'bấm trong menu thì menu vẫn còn');
+  // chuột phải sang thẻ khác: menu cũ thay bằng menu mới (luôn chỉ có một)
+  await cardB.click({ button: 'right' }); await p.waitForTimeout(150); assert.equal(await menu.count(), 1, 'chỉ một menu');
+  assert.ok((await menu.textContent()).includes('Bài không rõ kênh'), 'menu mới của thẻ vừa bấm');
+  await p.keyboard.press('Escape'); await p.waitForTimeout(100);
+  // cuộn lưới thì ẩn
+  await cardA.click({ button: 'right' }); await p.waitForTimeout(150); await p.mouse.move(cb.x + 10, cb.y + 10); await p.mouse.wheel(0, 100); await p.waitForTimeout(150);
+  assert.equal(await menu.count(), 0, 'cuộn thì ẩn menu');
+  // 5) Thêm vào Yêu thích
   await reset(); await cardA.click({ button: 'right' }); await pick('Thêm vào Yêu thích');
   let cs = await calls(); assert.equal(cs.length, 1); assert.equal(cs[0][0], 'favAdd'); assert.equal(cs[0][1][0].videoId, 'vidAAAAAAA1');
   assert.equal(await menu.count(), 0, 'chọn xong menu tự đóng');
-  // đã là Yêu thích: đổi thành Xoá khỏi Yêu thích
   await p.evaluate(() => window.__emit('favs', [{ videoId: 'vidAAAAAAA1', title: 'Bài của Kênh Một', channel: 'Kênh Một', durationSec: 100 }])); await p.waitForTimeout(100);
   await reset(); await cardA.click({ button: 'right' }); await p.waitForTimeout(150);
-  assert.equal((await labels())[0], 'Xoá khỏi Yêu thích');
+  assert.equal((await labels())[2], 'Xoá khỏi Yêu thích');
   await pick('Xoá khỏi Yêu thích');
   assert.deepStrictEqual(await calls(), [['favRemove', ['vidAAAAAAA1']]]);
   await p.evaluate(() => window.__emit('favs', []));
-  // 5) Phát ngay / Thêm vào hàng đợi
+  // 6) Phát ngay / Thêm vào hàng đợi
   await reset(); await cardA.click({ button: 'right' }); await pick('Phát ngay');
   cs = await calls(); assert.equal(cs[0][0], 'playHitNow'); assert.equal(cs[0][1][0].videoId, 'vidAAAAAAA1');
   await reset(); await cardA.click({ button: 'right' }); await pick('Thêm vào hàng đợi');
   cs = await calls(); assert.equal(cs[0][0], 'addHit'); assert.equal(cs[0][1][1], false, 'không chen lên đầu');
-  // 6) Xem bài của kênh này -> tìm theo kênh, ô tìm hiện tên kênh
+  // 7) Xem bài của kênh này -> tải tất cả video của kênh (gửi tên kênh + mã bài để lấy link kênh), ô tìm hiện tên kênh
   await reset(); await cardA.click({ button: 'right' }); await pick('Xem bài của kênh này');
-  assert.deepStrictEqual(await calls(), [['tvSearchChannel', ['Kênh Một']]]);
+  assert.deepStrictEqual(await calls(), [['tvSearchChannel', ['Kênh Một', 'vidAAAAAAA1']]]);
   assert.equal(await p.inputValue('#q'), 'Kênh Một');
-  // trạng thái "đang xem kênh" (do tiến trình chính gửi về)
   const S = (o) => p.evaluate(s => window.__emit('search', Object.assign({ version: 9, query: 'Kênh Một', source: 'tv', channel: 'Kênh Một', results: [], hasMore: false, page: 0, loading: false, error: null }, s)), o);
   await S({ loading: true }); await p.waitForTimeout(100);
-  assert.equal(await p.textContent('#status'), 'Đang tìm bài của kênh “Kênh Một”…');
-  await S({ results: [{ videoId: 'vidAAAAAAA1', title: 'T1', channel: 'Kênh Một', durationSec: 100 }, { videoId: 'vidCCCCCCC3', title: 'T3', channel: 'Kênh Một', durationSec: 100 }] }); await p.waitForTimeout(100);
-  assert.equal(await p.textContent('#status'), 'Bài của kênh “Kênh Một” · 2 bài');
-  assert.equal(await p.locator('.cardv').count(), 2);
-  await S({ results: [] }); await p.waitForTimeout(100);
-  assert.equal(await p.textContent('#status'), 'Không thấy bài nào của kênh “Kênh Một”');
-  await S({ channel: '', query: 'abc', results: [{ videoId: 'vidAAAAAAA1', title: 'T1', channel: 'K', durationSec: 100 }] }); await p.waitForTimeout(100);
+  assert.equal(await p.textContent('#status'), 'Đang lấy tất cả video của kênh “Kênh Một”…');
+  const vids = n => Array.from({ length: n }, (_, i) => ({ videoId: 'vid' + String(i).padStart(8, '0'), title: 'T' + i, channel: 'Kênh Một', durationSec: 100 }));
+  await S({ loading: true, results: vids(40) }); await p.waitForTimeout(150);
+  assert.equal(await p.textContent('#status'), 'Kênh “Kênh Một” · 40 video · đang tải thêm…');
+  await S({ loading: true, results: vids(400), version: 10 }); await p.waitForTimeout(250);
+  assert.equal(await p.locator('.cardv').count(), 400, 'video đổ dần về, thêm vào lưới (không giới hạn 300)');
+  await S({ results: vids(400), version: 11 }); await p.waitForTimeout(100);
+  assert.equal(await p.textContent('#status'), 'Kênh “Kênh Một” · 400 video');
+  await S({ results: [], version: 12 }); await p.waitForTimeout(100);
+  assert.equal(await p.textContent('#status'), 'Không thấy video nào của kênh “Kênh Một”');
+  await S({ error: 'yt-dlp lỗi', version: 13 }); await p.waitForTimeout(100);
+  assert.equal(await p.textContent('#status'), 'Không tải được kênh: yt-dlp lỗi');
+  await S({ channel: '', query: 'abc', results: [{ videoId: 'vidAAAAAAA1', title: 'T1', channel: 'K', durationSec: 100 }], version: 14 }); await p.waitForTimeout(100);
   assert.ok((await p.textContent('#status')).startsWith('Kết quả cho “abc”'), 'tìm bình thường thì trở lại nhãn cũ');
-  // 7) Mở trang kênh trên YouTube (+ thông báo khi phải dùng trang tìm kênh dự phòng)
-  await S({ channel: '', query: 'x', results: [{ videoId: 'vidAAAAAAA1', title: 'Bài của Kênh Một', channel: 'Kênh Một', durationSec: 100 }, { videoId: 'vidBBBBBBB2', title: 'Bài không rõ kênh', channel: '', durationSec: 100 }] }); await p.waitForTimeout(100);
+  // 8) Mở trang kênh trên YouTube (+ thông báo khi phải dùng trang tìm kênh dự phòng)
+  await S({ channel: '', query: 'x', version: 15, results: [{ videoId: 'vidAAAAAAA1', title: 'Bài của Kênh Một', channel: 'Kênh Một', durationSec: 100 }, { videoId: 'vidBBBBBBB2', title: 'Bài không rõ kênh', channel: '', durationSec: 100 }] }); await p.waitForTimeout(100);
   await reset(); await cardA.click({ button: 'right' }); await pick('Mở trang kênh trên YouTube');
   cs = await calls(); assert.equal(cs[0][0], 'openChannel'); assert.equal(cs[0][1][0].videoId, 'vidAAAAAAA1');
   await p.evaluate(() => { window.__fallback = true; });
   await cardA.click({ button: 'right' }); await pick('Mở trang kênh trên YouTube'); await p.waitForTimeout(100);
   assert.ok((await p.textContent('#toast')).includes('trang tìm kênh'), 'báo khi dùng link dự phòng');
-  // 8) bài không có tên kênh: không có "Xem bài của kênh này"
+  // 9) bài không có tên kênh: không có "Xem bài của kênh này"
   await cardB.click({ button: 'right' }); await p.waitForTimeout(150);
   assert.deepStrictEqual(await labels(), EXPECT.filter(x => x !== 'Xem bài của kênh này'));
   await p.keyboard.press('Escape'); await p.waitForTimeout(100);
-  // 9) bàn phím/điều khiển từ xa: giữ Enter ≥ 0,6 giây mở menu, không bấm nhầm mục nào; lên/xuống đổi mục; Enter ở "ĐÓNG" thì đóng
+  // 10) bàn phím/điều khiển từ xa: giữ Enter ≥ 0,6 giây mở menu (trên thẻ đang chọn), không bấm nhầm mục; lên/xuống đổi mục; Esc đóng
   await cardA.focus(); await reset();
   await p.keyboard.down('Enter'); await p.waitForTimeout(700);
   await p.keyboard.down('Enter'); await p.waitForTimeout(100); await p.keyboard.down('Enter'); await p.waitForTimeout(100); await p.keyboard.down('Enter'); await p.waitForTimeout(100);
@@ -132,18 +165,28 @@ const CS = require('../main/chansearch');
   assert.equal(await menu.count(), 1, 'giữ Enter mở menu');
   assert.deepStrictEqual(await calls(), [], 'giữ Enter không được bấm lặp vào mục đầu của menu');
   const focused = () => p.evaluate(() => document.activeElement && document.activeElement.textContent);
-  assert.equal(await focused(), 'Thêm vào Yêu thích', 'mục đầu được chọn sẵn');
-  await p.keyboard.press('ArrowDown'); assert.equal(await focused(), 'Xem bài của kênh này');
-  await p.keyboard.press('ArrowUp'); assert.equal(await focused(), 'Thêm vào Yêu thích');
-  await p.keyboard.press('ArrowUp'); assert.equal(await focused(), 'Thêm vào Yêu thích', 'không vượt quá mục đầu');
+  assert.equal(await focused(), 'Phát ngay', 'mục đầu được chọn sẵn khi mở bằng phím');
+  mb = await box(); assert.ok(mb.x >= cb.x - 2 && mb.x <= cb.x + cb.width && mb.y >= cb.y - 2 && mb.y <= cb.y + cb.height, 'mở bằng phím: hiện trên thẻ đang chọn');
+  await p.keyboard.press('ArrowDown'); assert.equal(await focused(), 'Thêm vào hàng đợi');
+  await p.keyboard.press('ArrowUp'); assert.equal(await focused(), 'Phát ngay');
+  await p.keyboard.press('ArrowUp'); assert.equal(await focused(), 'Phát ngay', 'không vượt quá mục đầu');
   for (let i = 0; i < 8; i++) await p.keyboard.press('ArrowDown');
-  assert.equal(await focused(), 'ĐÓNG', 'xuống hết thì dừng ở ĐÓNG');
-  await p.keyboard.press('Enter'); await p.waitForTimeout(150);
+  assert.equal(await focused(), 'Mở trang kênh trên YouTube', 'xuống hết thì dừng ở mục cuối');
+  await p.keyboard.press('Escape'); await p.waitForTimeout(150);
   assert.equal(await menu.count(), 0); assert.deepStrictEqual(await calls(), []);
-  // 10) chọn mục bằng Enter trên bàn phím
+  assert.equal(await p.evaluate(() => document.activeElement.classList.contains('cardv')), true, 'đóng bằng Esc: trả focus về thẻ');
+  // 11) chọn mục bằng Enter trên bàn phím
   await cardA.focus(); await p.keyboard.down('Enter'); await p.waitForTimeout(700); await p.keyboard.down('Enter'); await p.keyboard.up('Enter'); await p.waitForTimeout(200);
-  await p.keyboard.press('ArrowDown'); await p.keyboard.press('ArrowDown'); await p.keyboard.press('Enter'); await p.waitForTimeout(200);
-  cs = await calls(); assert.equal(cs.length, 1); assert.equal(cs[0][0], 'playHitNow', 'Lên/xuống + Enter chọn đúng mục "Phát ngay"');
+  await p.keyboard.press('ArrowDown'); await p.keyboard.press('Enter'); await p.waitForTimeout(200);
+  cs = await calls(); assert.equal(cs.length, 1); assert.equal(cs[0][0], 'addHit', 'Lên/xuống + Enter chọn đúng mục "Thêm vào hàng đợi"');
+  // 12) nút XOÁ nằm bên trái nút TÌM, xoá chữ trong ô tìm kiếm và đặt con trỏ lại vào ô
+  const xb = await p.locator('#clearSearch').boundingBox(), gb = await p.locator('#goSearch').boundingBox();
+  assert.equal(await p.textContent('#clearSearch'), 'XOÁ'); assert.ok(xb.x + xb.width <= gb.x + 1, 'XOÁ ở bên trái TÌM');
+  await p.fill('#q', 'sơn tùng'); await reset();
+  await p.click('#clearSearch'); await p.waitForTimeout(100);
+  assert.equal(await p.inputValue('#q'), '', 'bấm XOÁ thì ô tìm kiếm trống');
+  assert.equal(await p.evaluate(() => document.activeElement.id), 'q', 'con trỏ trở lại ô tìm kiếm để gõ tiếp');
+  assert.deepStrictEqual(await calls(), [], 'XOÁ chỉ xoá chữ, không tìm kiếm');
   console.log('lỗi JS máy tính:', errs.length ? errs.join('\n') : 'không');
   await b.close(); assert.equal(errs.length, 0);
   console.log('Menu thẻ bài hát: đạt'); process.exit(0);
