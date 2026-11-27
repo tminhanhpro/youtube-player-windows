@@ -9,7 +9,7 @@
       add: 'Add', added: 'Added: ', in_queue: 'In queue', dl_have: 'Saved', play_next: 'Play next', play_now: 'Play now',
       prioritize: 'Move to top', remove: 'Remove', move_up: 'Move up', move_down: 'Move down', close: 'Close',
       now_playing: 'Now playing', next: 'Next: ', nothing: 'Nothing is waiting. The TV plays suggested songs.',
-      no_results: 'No results', load_more: 'Load more  ⌄', retry: 'Connection problem — tap to retry  ⟳', recent: 'Recent searches', loading: 'Loading…',
+      no_results: 'No results', load_more: 'Load more', retry: '↻ Connection problem — tap to retry', recent: 'Recent searches', loading: 'Loading…',
       paste_title: 'Add a YouTube link', paste_ph: 'Paste YouTube link or video ID', title_opt: 'Song title (optional)',
       cancel: 'Cancel', menu: 'Settings', language: 'Language', device: 'Your device name',
       karaoke_mode: 'Karaoke mode (append "karaoke" to searches)', reset_pairing: 'Reset pairing',
@@ -52,7 +52,7 @@
       add: 'Thêm', added: 'Đã thêm: ', in_queue: 'Đã chọn', dl_have: 'Đã tải', play_next: 'Phát tiếp theo', play_now: 'Phát ngay',
       prioritize: 'Đưa lên đầu', remove: 'Xóa', move_up: 'Lên', move_down: 'Xuống', close: 'Đóng',
       now_playing: 'Đang phát', next: 'Tiếp theo: ', nothing: 'Chưa có bài nào chờ. TV đang phát bài gợi ý.',
-      no_results: 'Không có kết quả', load_more: 'Tải thêm  ⌄', retry: 'Lỗi mạng — bấm để thử lại  ⟳', recent: 'Tìm gần đây', loading: 'Đang tải…',
+      no_results: 'Không có kết quả', load_more: 'Tải thêm video', retry: '↻ Lỗi mạng — bấm để thử lại', recent: 'Tìm gần đây', loading: 'Đang tải…',
       paste_title: 'Thêm link YouTube', paste_ph: 'Dán link YouTube hoặc mã video', title_opt: 'Tên bài (không bắt buộc)',
       cancel: 'Hủy', menu: 'Cài đặt', language: 'Ngôn ngữ', device: 'Tên điện thoại của bạn',
       karaoke_mode: 'Chế độ karaoke (tự thêm chữ "karaoke" khi tìm)', reset_pairing: 'Đặt lại ghép nối',
@@ -1080,7 +1080,7 @@
     var b = $('more-btn'); if (!b) return;
     var show = !!(hasMore && curQuery && results.length && !loading);
     b.hidden = !show;
-    if (show) b.textContent = t(loadFailed ? 'retry' : 'load_more');
+    if (show) b.innerHTML = loadFailed ? t('retry') : t('load_more') + ' <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v15M5.5 12.5 12 19l6.5-6.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   }
   function checkMore() {
     if (!hasMore || loading || loadFailed || !curQuery || $('view-search').hidden) return;

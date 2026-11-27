@@ -55,20 +55,28 @@ class DownloadLibrary {
       if (state.n >= MAX_FILES) return;
       let ents;
       try { ents = await fs.promises.readdir(d, { withFileTypes: true }); } catch (e) { return; }
+      const dirs = [], files = [];
       for (const e of ents) {
-        if (state.n >= MAX_FILES) return;
         const full = path.join(d, e.name);
-        if (e.isDirectory()) { if (depth < MAX_DEPTH && !SKIP_DIR.test(e.name)) await walk(full, depth + 1, state); continue; }
+        if (e.isDirectory()) { if (depth < MAX_DEPTH && !SKIP_DIR.test(e.name)) dirs.push(full); continue; }
         if (!e.isFile()) continue;
         const id = idFromName(e.name);
-        if (!id) continue;
-        let st; try { st = await fs.promises.stat(full); } catch (x) { continue; }
-        if (st.size < MIN_BYTES) continue;
-        state.n++;
-        const rec = { path: full, size: st.size, kind: kindOf(full), mtime: st.mtimeMs };
-        const old = next.get(id);
-        if (!old || better(rec, old)) next.set(id, rec);
+        if (id) files.push({ id, full });
       }
+      for (let i = 0; i < files.length && state.n < MAX_FILES; i += 32) {   // stat theo lô song song cho nhanh
+        const batch = files.slice(i, i + 32);
+        const sts = await Promise.all(batch.map(f => fs.promises.stat(f.full).catch(() => null)));
+        for (let k = 0; k < batch.length; k++) {
+          const st = sts[k];
+          if (!st || st.size < MIN_BYTES) continue;
+          if (state.n >= MAX_FILES) return;
+          state.n++;
+          const rec = { path: batch[k].full, size: st.size, kind: kindOf(batch[k].full), mtime: st.mtimeMs };
+          const old = next.get(batch[k].id);
+          if (!old || better(rec, old)) next.set(batch[k].id, rec);
+        }
+      }
+      for (const sub of dirs) { if (state.n >= MAX_FILES) return; await walk(sub, depth + 1, state); }
     };
     if (dir) await walk(dir, 0, { n: 0 });
     this.map = next; this.dir = dir;

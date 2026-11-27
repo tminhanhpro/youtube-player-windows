@@ -257,7 +257,8 @@ function updateMoreBtn() {
   const b = $('moreBtn');
   const show = !favMode && !!search.hasMore && !!search.query && search.results.length > 0;
   b.hidden = !show;
-  if (show) b.textContent = search.loading ? 'Đang tải thêm…' : search.error ? 'Lỗi mạng — bấm để thử lại ⟳' : 'Tải thêm video ⌄';
+  if (show) b.innerHTML = search.loading ? 'Đang tải thêm…' : search.error ? '↻ Lỗi mạng — bấm để thử lại'
+    : 'Tải thêm video <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v15M5.5 12.5 12 19l6.5-6.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 }
 $('moreBtn').addEventListener('click', () => { if (!search.loading) bridge.call('tvLoadMore'); });
 function renderSearch() {

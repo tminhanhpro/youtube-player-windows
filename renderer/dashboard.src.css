@@ -79,7 +79,6 @@ input{font:inherit;color:inherit}
 .karaoke i{width:14px;height:14px;border-radius:7px;background:var(--dim);margin-right:10px}
 .karaoke.on{background:var(--red);border-color:var(--red);color:#fff}.karaoke.on i{background:#fff}
 .status{font-size:20px;color:var(--muted);margin:12px 8px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none}
-.morebtn{flex:none;margin:4px 8px 10px;height:64px;border-radius:14px;border:2px solid var(--accent,#4fc3f7);background:transparent;color:var(--accent,#4fc3f7);font-size:24px;font-weight:800;cursor:pointer}.morebtn[hidden]{display:none}.morebtn:hover,.morebtn:focus-visible{background:rgba(255,255,255,.1)}
 .grid{flex:1;display:grid;gap:14px;padding:6px 4px 20px;align-content:start;grid-template-columns:repeat(3,minmax(0,1fr))}
 .grid.c2{grid-template-columns:repeat(2,minmax(0,1fr))}.grid.c1{grid-template-columns:minmax(0,1fr)}
 .cardv{background:var(--panel);border:2px solid var(--border);border-radius:18px;padding:8px 8px 10px;cursor:pointer;outline:none;min-width:0}
@@ -321,7 +320,7 @@ input{font:inherit;color:inherit}
 --txt2:#2b3445;--dim:#9aa3b5;--line2:#b8c0d0;--dash:#aab3c5;--ph:#7a8499;--chipbg:#e1e6ef;--thumb:#dde3ed;--well:#f1f4f9;--shd:#00000040;--dropbg:#eef1f6ee;
 --warn:#c25e00;--warn2:#8a4b00;--bad:#c62828;--good:#2e7d32;--good2:#2e7d32;--org:#e65100;--pinkl:#c2185b}
 /* nút nền màu: chữ luôn trắng */
-:root[data-theme=light] :is(.tag,.tbtn,.micbtn,.catbtn,.logobtn.back,.cb.red,.badge,.favbtn,.rbtn.on,.opt.sel,.dbtn.primary,.lbtn.red,.sbtn.red,.sbtn.warn,.kmode.q,.ktab.on,.qa .qp,.lvnext:not(.off),.dbtn[data-r=duck].on,.cb.tog.on,.cb.sm.on,.lvtag,.dlmode .dbtn.on,.cat .del,.djbar i,.lchip button:hover){color:#fff}
+:root[data-theme=light] :is(.tag,.tbtn,.top .cb,.micbtn,.catbtn,.logobtn.back,.cb.red,.badge,.favbtn,.rbtn.on,.opt.sel,.dbtn.primary,.lbtn.red,.sbtn.red,.sbtn.warn,.kmode.q,.ktab.on,.qa .qp,.lvnext:not(.off),.dbtn[data-r=duck].on,.cb.tog.on,.cb.sm.on,.lvtag,.dlmode .dbtn.on,.cat .del,.djbar i,.lchip button:hover){color:#fff}
 /* trạng thái vàng (đang mở/đang bật) giữ chữ tối */
 :root[data-theme=light] :is(.tbtn.on,.top .cb[aria-expanded=true],.catbtn[aria-expanded=true],.rbtn[aria-expanded=true],.favbtn.bnrbtn.on){color:#1a1a1a}
 :root[data-theme=light] .lvcard.next .lvtag{color:#000}
@@ -339,3 +338,21 @@ input{font:inherit;color:inherit}
 .ctxi:hover,.ctxi:focus-visible{background:var(--hov2);outline:0}.ctxi:hover .ic,.ctxi:focus-visible .ic{color:var(--cyan)}.ctxi:focus-visible{box-shadow:0 0 0 2px var(--cyan)}
 .ctxi.fav .ic{color:var(--pink)}
 .ctxsep{height:2px;margin:6px 8px;background:var(--border)}
+
+/* ---- Thanh trên cùng: chữ luôn nằm 1 hàng, nhóm nút luôn cách nhau, chỗ chật thì chỉ dòng trạng thái bị rút gọn ---- */
+.top{min-width:0}
+.top h1,.top .brand small,.top .tag,.top .clock,.top .chip,.top .chip span{white-space:nowrap}
+.top .logobtn,.top .brand,.top .tag,.top .tools,.top .mcgrp,.top .chip,.top .clock,.top .dotic{flex:none}
+.top .remote{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.top>.grow{flex:1 1 0;min-width:28px}
+.dotic{margin-left:24px}
+.tools{margin-left:20px}
+.chip{margin-right:20px}
+.top .cb{background:var(--c,var(--panel2));border-color:#ffffff55}
+.top .cb:hover{background:var(--c,var(--hov2));filter:brightness(1.15)}
+.top .cb[aria-expanded=true]{filter:none}
+/* ---- Nút Tải thêm video: nhỏ gọn vừa chữ, có mũi tên xuống rõ ràng ---- */
+.morebtn{flex:none;align-self:center;display:inline-flex;align-items:center;gap:10px;margin:4px 0 12px;padding:10px 28px;border-radius:999px;border:2px solid var(--cyan);background:transparent;color:var(--cyan);font-size:22px;font-weight:800;white-space:nowrap;cursor:pointer}
+.morebtn[hidden]{display:none}
+.morebtn svg{width:26px;height:26px;flex:none}
+.morebtn:hover,.morebtn:focus-visible{background:rgba(41,182,246,.16)}

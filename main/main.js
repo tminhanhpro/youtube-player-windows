@@ -565,7 +565,10 @@ app.whenReady().then(async () => {
     getQueueItems: () => [ctl.current, ...ctl.queue].filter(Boolean).map(i => ({ videoId: i.videoId, title: i.title, local: i.local }))
   });
   ctl.setDownloads(dl.library);
-  try { await dl.library.scan(); } catch (e) { resolver.log('QUÉT THƯ MỤC TẢI LỖI ' + (e && e.message)); }   // quét trước khi phát để bài đã tải dùng được ngay
+  // quét thư mục đã tải: chờ tối đa 1,2 giây rồi mở cửa sổ luôn; quét xong sẽ tự cập nhật (trước đây chờ quét xong mới mở app nên chậm)
+  const scanP = dl.library.scan().catch(e => { resolver.log('QUÉT THƯ MỤC TẢI LỖI ' + (e && e.message)); });
+  await Promise.race([scanP, new Promise(r => setTimeout(r, 1200))]);
+  scanP.then(() => { try { ctl.noteDownloadsChanged(); pushState(); } catch (e) { /* app đang đóng */ } });
   dl.on('update', j => broadcast('dl-update', j));
   dl.on('removed', id => broadcast('dl-removed', id));
   dl.on('library', info => { ctl.noteDownloadsChanged(); broadcast('dl-library', info); pushState(); });
