@@ -253,8 +253,16 @@ function chanStatus(sv) {
     !sv.results.length ? 'Không thấy video nào của kênh ' + n :
     'Kênh ' + n + ' · ' + sv.results.length + ' video' + (sv.loading ? ' · đang tải thêm…' : '');
 }
+function updateMoreBtn() {
+  const b = $('moreBtn');
+  const show = !favMode && !!search.hasMore && !!search.query && search.results.length > 0;
+  b.hidden = !show;
+  if (show) b.textContent = search.loading ? 'Đang tải thêm…' : search.error ? 'Lỗi mạng — bấm để thử lại ⟳' : 'Tải thêm video ⌄';
+}
+$('moreBtn').addEventListener('click', () => { if (!search.loading) bridge.call('tvLoadMore'); });
 function renderSearch() {
   const sv = search;
+  updateMoreBtn();
   if (favMode) { if (sv.query === favSearchQuery) return; leaveFavMode(); }
   $('status').textContent = sv.channel ? chanStatus(sv) :
     sv.loading && !sv.results.length ? 'Đang tìm “' + sv.query + '”…' :
@@ -394,12 +402,12 @@ async function removeFav(h) {
   if (favMode) renderFavs(pos);
 }
 function showFavorites() {
-  favMode = true; favSearchQuery = search.query; selCat = -1;
+  favMode = true; updateMoreBtn(); favSearchQuery = search.query; selCat = -1;
   renderCats(); $('favBtn').classList.add('on'); $('homeBtn').classList.add('back'); $('homeBtn').title = 'Quay lại kết quả tìm kiếm'; renderFavs(0);
 }
 function leaveFavMode() {
   if (!favMode) return;
-  favMode = false; $('favBtn').classList.remove('on'); $('homeBtn').classList.remove('back'); $('homeBtn').title = 'Về kết quả tìm kiếm';
+  favMode = false; updateMoreBtn(); $('favBtn').classList.remove('on'); $('homeBtn').classList.remove('back'); $('homeBtn').title = 'Về kết quả tìm kiếm';
   shown = { q: '', n: 0, first: null, cols: 0 }; $('grid').innerHTML = '';
 }
 let favFocus = 0;
