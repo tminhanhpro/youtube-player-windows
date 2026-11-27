@@ -3,6 +3,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { ApiError, constEq, parseVideoId, clean, norm, thumb } = require('./util');
+const chanSearch = require('./chansearch');
 const { Cats, Favs } = require('./data');
 const resolver = require('./resolver');
 const { itemJson } = require('./controller');
@@ -472,19 +473,10 @@ class KaraokeServer {
     throw new ApiError(404, 'NOT_FOUND', 'Not found');
   }
 
-  async searchByChannel(q, chan, page, karaoke) {
+  async searchByChannel(q, chan, page) {
     if (page > 0) return { hits: [], hasMore: false };
-    const tokens = norm(chan).split(/\s+/).filter(Boolean);
-    const out = [];
-    for (let p = 0; p < 5; p++) {
-      const r = await this.ctl.runSearch(q, p, 'remote');
-      for (const h of r.hits) {
-        const c = norm(h.channel);
-        if (tokens.every(t => c.includes(t)) && !out.some(x => x.videoId === h.videoId)) out.push(h);
-      }
-      if (!r.hasMore || out.length >= 20) break;
-    }
-    return { hits: out, hasMore: false };
+    const hits = await chanSearch.searchByChannel(p => this.ctl.runSearch(q, p, 'remote'), chan);
+    return { hits, hasMore: false };
   }
 
   async search(res, q) {

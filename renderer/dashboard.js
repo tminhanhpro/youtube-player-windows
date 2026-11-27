@@ -44,7 +44,7 @@ function toast(msg) {
 function modal(o) {
   const root = $('modal');
   const d = document.createElement('div');
-  d.className = 'dlg'; d.setAttribute('role', 'dialog');
+  d.className = 'dlg' + (o.cls ? ' ' + o.cls : ''); d.setAttribute('role', 'dialog');
   let html = '<h2>' + esc(o.title || '') + '</h2>';
   (o.lines || []).forEach(l => { html += '<p' + (l.style ? ' style="' + l.style + '"' : '') + '>' + esc(l.text || l) + '</p>'; });
   d.innerHTML = html;
@@ -67,6 +67,11 @@ function modal(o) {
   if (made.length) d.appendChild(btns);
   const onKey = e => {
     if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); }
+    else if (e.key === 'Enter' && e.repeat && document.activeElement && document.activeElement.tagName === 'BUTTON' && d.contains(document.activeElement)) { e.preventDefault(); e.stopPropagation(); } // đang giữ Enter (vừa mở hộp thoại bằng giữ OK): không bấm lặp vào nút
+    else if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && d.querySelector('.dlist') && document.activeElement && document.activeElement.tagName === 'BUTTON' && d.contains(document.activeElement)) {
+      const bs = [...d.querySelectorAll('.dlist button, .dbtn')].filter(b => !b.disabled), i = bs.indexOf(document.activeElement);
+      if (i >= 0) { e.preventDefault(); e.stopPropagation(); bs[Math.max(0, Math.min(bs.length - 1, i + (e.key === 'ArrowDown' ? 1 : -1)))].focus(); }
+    }
     else if (e.key === 'Enter' && input && document.activeElement === input) { e.preventDefault(); e.stopPropagation(); const p = made.find((_, i) => o.buttons[i].primary) || made[0]; p && p.click(); }
   };
   document.addEventListener('keydown', onKey, true);
@@ -222,8 +227,8 @@ function makeCard(h, idx) {
   const dlb = c.querySelector('.dlnow');
   dlb.onclick = e => { e.stopPropagation(); e.preventDefault(); downloadNow(h, dlb); };
   dlb.onmousedown = e => e.stopPropagation();
-  c._long = () => (favMode ? removeFav(h) : addFav(h));
-  c.oncontextmenu = e => { e.preventDefault(); c._long(); };
+  c._long = () => openCardMenu(h);
+  c.oncontextmenu = e => { e.preventDefault(); openCardMenu(h); };
   c._remove = () => { if (favMode) removeFav(h); };
   c.onfocus = () => { if (!favMode && idx >= (search.results.length - 4)) bridge.call('tvLoadMore'); };
   if (favMode) { // Yêu thích: cuối mỗi bài có nút phát / dời lên / dời xuống / xoá
@@ -241,10 +246,17 @@ function makeCard(h, idx) {
   return c;
 }
 
+function chanStatus(sv) {
+  const n = '“' + sv.channel + '”';
+  return sv.loading && !sv.results.length ? 'Đang tìm bài của kênh ' + n + '…' :
+    sv.error && !sv.results.length ? 'Không tìm được: ' + sv.error :
+    !sv.results.length ? 'Không thấy bài nào của kênh ' + n :
+    'Bài của kênh ' + n + ' · ' + sv.results.length + ' bài' + (sv.loading ? ' · đang tải thêm…' : '');
+}
 function renderSearch() {
   const sv = search;
   if (favMode) { if (sv.query === favSearchQuery) return; leaveFavMode(); }
-  $('status').textContent =
+  $('status').textContent = sv.channel ? chanStatus(sv) :
     sv.loading && !sv.results.length ? 'Đang tìm “' + sv.query + '”…' :
     sv.error && !sv.results.length ? 'Không tìm được: ' + sv.error :
     !sv.query ? 'Chọn thể loại bên trái hoặc gõ tên bài hát để tìm' :
@@ -272,6 +284,32 @@ function maybeMore() {
   if (g.scrollHeight - g.scrollTop - g.clientHeight < 500) bridge.call('tvLoadMore');
 }
 $('grid').addEventListener('scroll', maybeMore);
+
+// ------------------------------------------------------------------ menu của bài hát (chuột phải, hoặc giữ OK/Enter ≥ 0,6 giây)
+function openCardMenu(h) {
+  const fav = isFav(h.videoId);
+  const items = [
+    { label: fav ? 'Xoá khỏi Yêu thích' : 'Thêm vào Yêu thích', run: () => (fav ? removeFav(h) : addFav(h)) },
+    h.channel ? { label: 'Xem bài của kênh này', run: () => searchChannel(h.channel) } : null,
+    { label: 'Phát ngay', run: async () => { await bridge.call('playHitNow', [h]); toast('Đang phát: ' + h.title); } },
+    { label: 'Thêm vào hàng đợi', run: () => addHit(h, false) },
+    { label: 'Mở trang kênh trên YouTube', run: () => openChannelPage(h) }
+  ].filter(Boolean);
+  modal({ title: h.title, cls: 'cmenu', lines: h.channel ? [h.channel] : [], list: items, buttons: [{ label: 'ĐÓNG' }] });
+}
+function searchChannel(name) {
+  name = String(name || '').trim(); if (!name) return;
+  syncCatToQuery(name); leaveFavMode(); $('q').value = name;
+  bridge.call('tvSearchChannel', [name]);
+}
+async function openChannelPage(h) {
+  toast('Đang mở trang kênh…');
+  try {
+    const r = await bridge.call('openChannel', [h]);
+    if (!r || !r.ok) toast('Không mở được trang kênh');
+    else if (r.fallback) toast('Không lấy được link kênh, đã mở trang tìm kênh “' + (h.channel || '') + '”');
+  } catch (e) { toast('Không mở được trang kênh'); }
+}
 
 async function addHit(h, priority) {
   const code = await bridge.call('addHit', [h, !!priority]);

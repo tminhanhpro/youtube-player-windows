@@ -11,6 +11,7 @@ const { Cats, Favs } = require('./data');
 const { lanIp, newToken, netInfo, parseVideoId, clean } = require('./util');
 const searchSvc = require('./search');
 const resolver = require('./resolver');
+const chanSearch = require('./chansearch');
 const REACT_IDS = require('./react-ids');
 const { StreamProxy } = require('./proxy');
 const { TvManager } = require('./tv');
@@ -124,14 +125,27 @@ async function pushState() {
 }
 
 let searchTok = 0;
+let chanMode = null;   // { q, name }: khi kết quả trên máy tính đang là "bài của một kênh" (không tải thêm, không lẫn bài kênh khác)
 async function tvSearch(q) {
   const t = ++searchTok;
+  chanMode = null;
   ctl.searchBegin(q, 'tv');
   try {
     const r = await ctl.runSearch(q, 0, 'tv');
     if (t === searchTok) ctl.searchDone(q, 'tv', 0, r.hits, r.hasMore);
   } catch (e) {
     if (t === searchTok) ctl.searchFail(q, 'tv', String(e && e.message || 'lỗi mạng').slice(0, 100));
+  }
+}
+async function tvSearchChannel(name) {
+  const t = ++searchTok;
+  chanMode = { q: name, name };
+  ctl.searchBegin(name, 'tv');
+  try {
+    const hits = await chanSearch.searchByChannel(p => ctl.runSearch(name, p, 'tv'), name);
+    if (t === searchTok) ctl.searchDone(name, 'tv', 0, hits, false);
+  } catch (e) {
+    if (t === searchTok) ctl.searchFail(name, 'tv', String(e && e.message || 'lỗi mạng').slice(0, 100));
   }
 }
 async function tvLoadMore() {
@@ -147,7 +161,8 @@ async function tvLoadMore() {
   }
 }
 function searchPayload(s) {
-  return { version: s.version, query: s.query, source: s.source, results: s.results.slice(0, 300), hasMore: s.hasMore, page: s.page, loading: s.loading, error: s.error };
+  return { version: s.version, query: s.query, source: s.source, results: s.results.slice(0, 300), hasMore: s.hasMore, page: s.page, loading: s.loading, error: s.error,
+    channel: chanMode && s.source === 'tv' && s.query === chanMode.q ? chanMode.name : '' };
 }
 function saveFavs(list) { Favs.save(store, list); ctl.bumpFavVersion(); ctl.emit('favs'); }
 
@@ -184,6 +199,7 @@ function buildReport() {
   head.push('', '=== NHẬT KÝ (60 dòng gần nhất, mới nhất ở dưới) ===');
   return { text: maskIp(head.concat(lines.slice(-60)).join('\n')) || '(chưa có nhật ký)', path: resolver.logPath() };
 }
+const chanUrlCache = new Map();
 const methods = {
   getReport: () => buildReport(),
   netTest: async () => {
@@ -404,6 +420,19 @@ const methods = {
   // tìm kiếm trên máy tính
   tvSearch: q => { q = clean(q, 200); if (q) tvSearch(q); },
   tvLoadMore: () => { tvLoadMore(); },
+  tvSearchChannel: name => { name = clean(name, 100); if (name) tvSearchChannel(name); },
+  // mở trang kênh của bài hát bằng trình duyệt (nhớ link theo bài để lần sau mở ngay; không lấy được thì mở trang tìm kênh)
+  openChannel: async h => {
+    const id = parseVideoId(h && h.videoId || '');
+    if (!id) return { ok: false };
+    let url = chanUrlCache.get(id) || null;
+    if (!url) { try { url = chanSearch.safeChannelUrl(await resolver.channelUrl(id)); } catch (e) { url = null; } }
+    if (url) { chanUrlCache.set(id, url); if (chanUrlCache.size > 200) chanUrlCache.delete(chanUrlCache.keys().next().value); }
+    const real = !!url;
+    if (!url) url = chanSearch.channelSearchUrl(h && h.channel);
+    try { await shell.openExternal(url); } catch (e) { return { ok: false }; }
+    return { ok: true, fallback: !real };
+  },
   doSearch: async raw => {
     const q = clean(raw, 200);
     if (!q) return null;
