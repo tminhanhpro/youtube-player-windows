@@ -80,7 +80,7 @@ function modal(o) {
 }
 
 // ------------------------------------------------------------------ trạng thái từ tiến trình chính
-bridge.on('state', s => { snap = s.snap; info = s.info; cfg = s.info.cfg || cfg; renderState(); });
+bridge.on('state', s => { snap = s.snap; info = s.info; cfg = s.info.cfg || cfg; applyTheme(cfg.theme); renderState(); });
 bridge.on('search', s => { search = s; renderSearch(); });
 bridge.on('cats', l => { const q = cats[selCat] && cats[selCat].q; cats = l; selCat = q == null ? -1 : cats.findIndex(c => c.q === q); renderCats(); });
 bridge.on('favs', l => { favs = l; if (favMode) { renderFavs(favFocus); favFocus = 0; } else refreshHearts(); });
@@ -505,6 +505,27 @@ async function showReport() {
 window.addEventListener('error', e => { try { bridge.call('logRenderer', ['JS ' + e.message + ' @' + String(e.filename || '').split('/').pop() + ':' + e.lineno]); } catch (x) { /* ignore */ } });
 window.addEventListener('unhandledrejection', e => { try { bridge.call('logRenderer', ['JS promise: ' + (e.reason && e.reason.message || e.reason)]); } catch (x) { /* ignore */ } });
 $('gear').onclick = showSettings;
+
+// ------------------------------------------------------------------ chế độ sáng / tối
+let theme = 'dark';
+function applyTheme(t) {
+  t = t === 'light' ? 'light' : 'dark';
+  if (t === theme && $('themeIc').innerHTML) return;
+  theme = t;
+  if (t === 'light') document.documentElement.setAttribute('data-theme', 'light'); else document.documentElement.removeAttribute('data-theme');
+  // biểu tượng và nhãn cho biết bấm vào sẽ chuyển sang chế độ nào
+  $('themeIc').innerHTML = window.ICONS[t === 'light' ? 'moon' : 'sun'] || '';
+  $('themeLbl').textContent = t === 'light' ? 'Chế độ tối' : 'Chế độ sáng';
+  $('themeBtn').setAttribute('aria-label', $('themeLbl').textContent);
+}
+$('themeBtn').onclick = () => {
+  lastControlAt = Date.now();
+  const next = theme === 'light' ? 'dark' : 'light';
+  applyTheme(next); cfg.theme = next;
+  bridge.call('setSetting', ['theme', next]).catch(() => {});
+};
+applyTheme('dark');
+bridge.call('getSettings').then(s => applyTheme(s && s.theme)).catch(() => {});
 
 // ------------------------------------------------------------------ phóng to / thu nhỏ video
 function enterFullscreen() {

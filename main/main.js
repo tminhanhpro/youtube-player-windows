@@ -152,7 +152,7 @@ function searchPayload(s) {
 function saveFavs(list) { Favs.save(store, list); ctl.bumpFavVersion(); ctl.emit('favs'); }
 
 /** Các lệnh cửa sổ được phép gọi. */
-const SETTING_KEYS = { backend: ['AUTO', 'STREAM', 'IFRAME'], seedAutoplay: 'bool', gridCols: [1, 2, 3], fullscreenSec: 'int', qrHidden: 'bool', tvOutput: ['AUTO', 'OFF'],
+const SETTING_KEYS = { backend: ['AUTO', 'STREAM', 'IFRAME'], seedAutoplay: 'bool', gridCols: [1, 2, 3], fullscreenSec: 'int', qrHidden: 'bool', tvOutput: ['AUTO', 'OFF'], theme: ['dark', 'light'],
   sfxDuck: 'bool', duckLevel: [10, 20, 30, 40, 50], fadeInSec: [0, 1, 2, 3, 5], fadeOutSec: [2, 3, 5, 8, 10] };
 const maskIp = t => String(t).replace(/(\bip=|cho IP )(\d{1,3})\.(\d{1,3})\.\d{1,3}\.\d{1,3}/g, '$1$2.$3.x.x');
 function buildReport() {
@@ -385,7 +385,7 @@ const methods = {
     gridCols: settings.gridCols, fullscreenSec: settings.fullscreenSec, qrHidden: settings.qrHidden,
     tickerMode: settings.tickerMode, tvOutput: settings.tvOutput, tvActive: !!(tv && tv.active()),
     duckLevel: settings.duckLevel, fadeInSec: settings.fadeInSec, fadeOutSec: settings.fadeOutSec, sfxDuck: settings.sfxDuck,
-    dlDir: dl ? dl.dir() : '', dlMode: settings.dlMode
+    dlDir: dl ? dl.dir() : '', dlMode: settings.dlMode, theme: settings.theme
   }),
   setSetting: (k, v) => {
     const rule = SETTING_KEYS[k];

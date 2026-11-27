@@ -57,6 +57,9 @@ class Settings {
   set fadeInSec(v) { this.s.set('fadeInSec', Math.min(10, Math.max(0, Number(v) | 0))); }
   get fadeOutSec() { return Math.min(20, Math.max(1, Number(this.s.get('fadeOutSec', 4)) | 0)); }
   set fadeOutSec(v) { this.s.set('fadeOutSec', Math.min(20, Math.max(1, Number(v) | 0))); }
+  // giao diện máy tính điều khiển: dark (mặc định) | light
+  get theme() { return this.s.get('theme', 'dark') === 'light' ? 'light' : 'dark'; }
+  set theme(v) { this.s.set('theme', v === 'light' ? 'light' : 'dark'); }
   get qrHidden() { return this.s.get('qrHidden', false); }
   set qrHidden(v) { this.s.set('qrHidden', !!v); }
   // AUTO: có màn hình ngoài thì xuất ra; OFF: không bao giờ xuất
