@@ -495,9 +495,9 @@ class Controller extends EventEmitter {
     this.sources = []; this.srcIdx = 0;
     this.offlineKey = null;
     if (this.lastItemId !== item.itemId) {
-      this.lastItemId = item.itemId; this.reresolved = false; this.stallRetries = 0; this.sameSrcRetry = 0;
+      this.lastItemId = item.itemId; this.reresolved = false; this.stallRetries = 0; this.sameSrcRetry = 0; this.earlyEnds = 0;
     }
-    this.lastPos = -1;
+    this.lastPos = -1; this.stableFrom = null;
     this.pos = startMs || 0; this.dur = (item.durationSec || 0) * 1000;
     this.publish();
 
@@ -642,6 +642,14 @@ class Controller extends EventEmitter {
     if (!item || item.itemId !== key) return;
     if (kind === 'pos') {
       this.pos = a | 0; if (b > 0) this.dur = b | 0;
+      // Đã phát ổn định 60 giây sau lần trục trặc gần nhất thì coi như hồi phục: xoá bộ đếm thử lại.
+      // (Video dài gặp vài lần chập chờn mạng không được cộng dồn tới mức bị coi là hỏng và nhảy sang bài khác.)
+      if (this.state === S.PLAYING && (this.sameSrcRetry || this.reresolved || this.stallRetries || this.earlyEnds)) {
+        if (this.stableFrom == null || this.pos < this.stableFrom) this.stableFrom = this.pos;
+        else if (this.pos - this.stableFrom >= 60000) {
+          this.sameSrcRetry = 0; this.reresolved = false; this.stallRetries = 0; this.earlyEnds = 0; this.stableFrom = null;
+        }
+      }
       return;
     }
     if (kind === 'started') {
@@ -654,6 +662,15 @@ class Controller extends EventEmitter {
         this.publish();
       }
     } else if (kind === 'ended') {
+      // 'ended' sớm bất thường (luồng bị cắt giữa chừng, link hết hạn...): video còn dài mà báo hết -> phát tiếp từ chỗ đang nghe, KHÔNG nhảy sang bài khác
+      const total = Math.max(this.dur || 0, (item.durationSec || 0) * 1000);
+      if (!this.repeat && total > 30000 && this.pos < total - 10000 && (this.earlyEnds || 0) < 3 && !item.local) {
+        this.earlyEnds = (this.earlyEnds || 0) + 1; this.stableFrom = null;
+        resolver.log('ENDED SỚM ' + item.videoId + ' tại ' + Math.round(this.pos / 1000) + 's / ' + Math.round(total / 1000) + 's -> phát tiếp (lần ' + this.earlyEnds + ')');
+        resolver.invalidate(item.videoId);
+        this.playItem(item, this.pos);
+        return;
+      }
       this.consecutiveFails = 0;
       if (this.repeat) { // lặp lại bài này: tua về đầu rồi phát tiếp
         this.pos = 0; this.lastPosChangeAt = Date.now();

@@ -137,6 +137,9 @@
       }
     });
     video.addEventListener('waiting', () => { if (mode === 'stream' && hasAudio) audio.pause(); });
+    // Tiếng (luồng riêng) hết đệm giữa chừng: dừng hình chờ tiếng, đủ dữ liệu thì chạy lại cả hai (tránh hình chạy mà im tiếng)
+    audio.addEventListener('waiting', () => { if (mode === 'stream' && hasAudio && started && !wantPaused) video.pause(); });
+    audio.addEventListener('playing', () => { if (mode === 'stream' && hasAudio && started && !wantPaused && video.paused) video.play().catch(() => {}); });
     video.addEventListener('ended', () => { if (mode === 'stream') fire('ended'); });
     const logMedia = (el, name) => {
       try {

@@ -1,8 +1,3 @@
 node_modules/
 dist/
 bin/
-android/.gradle/
-android/build/
-android/app/build/
-android/local.properties
-*.apk

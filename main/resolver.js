@@ -94,7 +94,7 @@ function invalidate(id) {
 }
 
 const fmtSrc = f => ({
-  url: f.url, size: f.filesize || f.filesize_approx || 0, headers: f.http_headers || {},
+  url: f.url, size: f.filesize || 0, // chỉ tin dung lượng chính xác; filesize_approx (ước lượng) sai -> video dài bị cắt sớm/ kẹt cuối headers: f.http_headers || {},
   mime: (f.vcodec && f.vcodec !== 'none' ? 'video/' : 'audio/') + (f.ext === 'm4a' || f.ext === 'mp4' ? 'mp4' : (f.ext || 'mp4'))
 });
 const H = f => f.height || 0;

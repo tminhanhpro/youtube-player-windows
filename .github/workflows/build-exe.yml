@@ -1,7 +1,10 @@
 name: Build EXE (Windows)
 
-# Bấm Actions -> "Build EXE (Windows)" -> Run workflow để build.
+# Tu dong build moi khi co code moi duoc day (push) len GitHub. Van co the bam Actions -> "Build EXE (Windows)" -> Run workflow de build tay (chon dong goi ffmpeg).
 on:
+  push:
+    branches: ["**"]
+    paths-ignore: ["**.md"]
   workflow_dispatch:
     inputs:
       bundle_ffmpeg:
@@ -11,6 +14,11 @@ on:
 
 permissions:
   contents: write
+
+# Co code moi khi ban build cu chua xong thi huy ban cu, chi build ban moi nhat
+concurrency:
+  group: build-exe-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:

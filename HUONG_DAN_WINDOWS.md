@@ -159,11 +159,5 @@ Các test giao diện (cần Playwright, không nằm trong `npm run check`): `n
 - Hai nút **MC nói** (hạ nhạc) và **Fade out** nằm ở thanh trên cùng, ngay bên trái biểu tượng wifi / Online. Phím tắt **M** và **O** vẫn dùng như cũ.
 - Dưới khung đang phát, hai nút cuối hàng điều khiển giờ là **giảm âm lượng** và **tăng âm lượng** (mỗi lần bấm 5%, giống phím **-** và **+**).
 
-## Build file .apk cho điện thoại (tự động)
-Thư mục `android/` là app điện thoại Android (vỏ WebView mở trang remote của máy tính). Mỗi lần đẩy (push/upload) code lên GitHub, workflow **Build APK (Android)** tự chạy; vài phút sau tải `youtube-player-remote.apk` ở mục **Releases** (hoặc Artifacts), chép vào điện thoại và cài.
-- Mở app, gõ địa chỉ hiện trên màn hình máy tính (vd. `192.168.1.5:8080`) hoặc dán cả link trong mã QR. Lần sau tự vào thẳng.
-- Nút Back ở màn hình chính của remote → hỏi **Đổi máy tính** / **Thoát**.
-- APK ký bằng khoá cố định `android/debug.keystore` nên bản mới cài đè được bản cũ.
-
 ## Tìm kiếm cuộn không giới hạn
 Kết quả tìm kiếm tự tải thêm khi cuộn gần cuối (cả điện thoại và máy tính), giống YouTube; trên điện thoại còn có nút **Tải thêm ⌄** (và **thử lại** khi rớt mạng giữa chừng). Chỉ dừng khi YouTube hết kết quả (trần an toàn 5000 bài).

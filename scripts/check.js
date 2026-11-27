@@ -61,6 +61,13 @@ async function testPlayback(dir) {
   ctl.pause(); assert.equal(ctl.state, 'PAUSED'); assert.equal(cmds.pop().type, 'pause');
   ctl.resume(); assert.equal(ctl.state, 'PLAYING');
   ctl.seekTo(null, 10000); assert.equal(cmds.pop().ms, 40000);
+  // 'ended' khi mới phát 40/100 giây = luồng bị cắt sớm: phải phát tiếp bài A từ chỗ đang nghe, KHÔNG sang bài B
+  ctl.playerEvent('ended', load.key);
+  await new Promise(r => setTimeout(r, 50));
+  load = cmds.filter(c => c.type === 'load').pop();
+  assert.equal(load.videoId, 'aaaaaaaaaaa'); assert.equal(load.startMs, 40000);
+  ctl.playerEvent('started', load.key);
+  ctl.playerEvent('pos', load.key, 99000, 100000);          // phát gần hết rồi mới 'ended' thật
   ctl.playerEvent('ended', load.key);                       // sang bài B
   await new Promise(r => setTimeout(r, 50));
   load = cmds.filter(c => c.type === 'load').pop(); assert.equal(load.videoId, 'bbbbbbbbbbb');
@@ -79,8 +86,13 @@ async function testPlayback(dir) {
   assert.equal(ctl.state, 'ERROR'); assert.equal(bCount() - r0, 2);
   await new Promise(r => setTimeout(r, 1800));
   load = cmds.filter(c => c.type === 'load').pop(); assert.equal(load.videoId, 'ccccccccccc');
+  // chạy ổn định 60 giây sau trục trặc thì bộ đếm thử lại được xoá (video dài không bị cộng dồn lỗi rồi nhảy bài)
+  ctl.sameSrcRetry = 2; ctl.reresolved = 2; ctl.stallRetries = 2; ctl.state = 'PLAYING';
+  ctl.playerEvent('pos', load.key, 10000, 100000); ctl.playerEvent('pos', load.key, 75000, 100000);
+  assert.equal(ctl.sameSrcRetry, 0); assert.equal(ctl.stallRetries, 0); assert.ok(!ctl.reresolved);
   // bài không khả dụng -> bỏ qua
   failFor = 'ddddddddddd'; ctl.add('ddddddddddd', 'D', '', 1, 'u', 'end', false);
+  ctl.playerEvent('pos', load.key, 99000, 100000);
   ctl.playerEvent('ended', load.key); await new Promise(r => setTimeout(r, 1900));
   assert.equal(ctl.state, 'IDLE');
   // iframe dự phòng

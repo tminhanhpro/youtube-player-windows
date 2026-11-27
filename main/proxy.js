@@ -80,7 +80,9 @@ class StreamProxy {
     let id = this.byUrl.get(src.url);
     if (!id) {
       id = crypto.randomBytes(9).toString('base64url');
-      this.entries.set(id, { url: src.url, size: src.size || 0, headers: src.headers || {}, mime: src.mime || 'video/mp4', born: src.t || Date.now() });
+      // clen trên link googlevideo là dung lượng chính xác
+      let clen = 0; try { clen = Number(new URL(src.url).searchParams.get('clen') || 0); } catch (x) { /* ignore */ }
+      this.entries.set(id, { url: src.url, size: clen || src.size || 0, headers: src.headers || {}, mime: src.mime || 'video/mp4', born: src.t || Date.now() });
       this.byUrl.set(src.url, id);
       if (this.entries.size > 60) {
         const old = this.entries.keys().next().value;
